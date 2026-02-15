@@ -2,20 +2,20 @@
  * API Tests — CRUD operations against JSONPlaceholder REST API.
  *
  * These tests demonstrate Playwright's built-in API testing capabilities using the
- * `request` fixture (no browser needed). Each test calls an endpoint function from
- * users-endpoints.ts and asserts on the response status, body, or headers.
+ * apiTestHelpers fixture (no browser needed). The apiActions helper provides automatic
+ * logging of all HTTP requests/responses, while the assert helper logs all assertions.
  *
  * Tagged with @api so they can be run separately via: `npm run api`
  *
- * Target API: https://jsonplaceholder.typicode.com (configured as baseURL)
+ * Target API: https://jsonplaceholder.typicode.com
  *
- * Uses test-helpers-fixture for automatic test lifecycle logging.
+ * Features:
+ * - Automatic request/response logging via AdvancedAPIHelper
+ * - Automatic assertion logging via AdvancedAssertionsHelper
+ * - Test lifecycle logging (start/end/duration/summary)
+ * - Structured log4js output to console and files
  */
-import { test, expect } from '../../../src/fixtures/test-helpers-fixture';
-import usersRequest from '../../../src/endpoints/users-endpoints';
-import { Logger } from '../../../src/utils/Logger';
-
-const logger = Logger.getLogger('users-api-test');
+import { test } from '../../../src/fixtures/test-helpers-fixture';
 
 // Shared variables for response and parsed JSON across tests
 let response;
@@ -28,57 +28,74 @@ test.describe('Users API test @api',() =>{
      * GET /posts — Verifies that fetching all posts returns:
      *   - HTTP 200 status
      *   - An array of exactly 100 posts
+     *
+     * EXAMPLE: Using apiTestHelpers for automatic logging
      */
-    test('Check get users response success response', async ({request}) => {
-        logger.info('Sending GET /posts to fetch all posts');
-        response = await usersRequest.getUsers(request);
+    test('Check get users response success response', async ({apiTestHelpers}) => {
+        const { apiActions, assert } = apiTestHelpers;
+
+        // Automatic logging of request/response with apiActions
+        response = await apiActions.get('https://jsonplaceholder.typicode.com/posts', 'Fetch all posts');
         jsonResponse = await response.json();
-        logger.info(`Response status: ${response.status()}, Total posts: ${jsonResponse.length}`);
-        logger.debug(`Response body (first item): ${JSON.stringify(jsonResponse[0])}`);
-        await expect(response.status()).toBe(200);       // Assert HTTP status
-        await expect(jsonResponse.length).toBe(100);     // JSONPlaceholder has 100 posts
-        logger.info('Verified status=200 and posts count=100');
+
+        // Automatic assertion logging with assert helper
+        await assert.toEqual(response.status(), 200, 'Verify status is 200');
+        await assert.toEqual(jsonResponse.length, 100, 'Verify 100 posts returned');
     });
 
     /**
      * GET /posts?id=2 — Verifies that filtering by query parameter returns
      * the correct post with the expected title.
+     *
+     * EXAMPLE: Using apiTestHelpers with query parameters
      */
-    test('Check get users response for a specific user', async ({request}) => {
-        logger.info('Sending GET /posts?id=2 to fetch specific post');
-        response = await usersRequest.getUser2(request);
+    test('Check get users response for a specific user', async ({apiTestHelpers}) => {
+        const { apiActions, assert } = apiTestHelpers;
+
+        // Automatic logging of request/response with query parameter
+        response = await apiActions.get('https://jsonplaceholder.typicode.com/posts?id=2', 'Fetch specific post by id=2');
         jsonResponse = await response.json();
-        logger.info(`Response status: ${response.status()}, Results count: ${jsonResponse.length}`);
-        logger.debug(`Response body: ${JSON.stringify(jsonResponse)}`);
-        await expect(jsonResponse[0].title).toEqual('qui est esse');
-        logger.info(`Verified post title matches expected value: "${jsonResponse[0].title}"`);
+
+        // Automatic assertion logging with assert helper
+        await assert.toEqual(jsonResponse[0].title, 'qui est esse', 'Verify post title matches expected');
     });
 
     /**
      * GET /posts — Verifies response headers contain the expected
      * Connection: keep-alive header.
+     *
+     * EXAMPLE: Using apiTestHelpers to verify response headers
      */
-    test('Check get users response header', async ({request}) => {
-        logger.info('Sending GET /posts to verify response headers');
-        response = await usersRequest.getUsers(request);
+    test('Check get users response header', async ({apiTestHelpers}) => {
+        const { apiActions, assert } = apiTestHelpers;
+
+        // Automatic logging of request/response
+        response = await apiActions.get('https://jsonplaceholder.typicode.com/posts', 'Fetch all posts to verify headers');
         const headers = await response.headers();
-        logger.info(`Response status: ${response.status()}, Connection header: ${headers.connection}`);
-        logger.debug(`All response headers: ${JSON.stringify(headers)}`);
-        await expect(headers.connection).toEqual('keep-alive');
-        logger.info('Verified Connection header is "keep-alive"');
+
+        // Automatic assertion logging with assert helper
+        await assert.toEqual(headers.connection, 'keep-alive', 'Verify Connection header is keep-alive');
     });
 
     /**
      * POST /posts — Creates a new post and verifies the response body
      * contains id=101 (JSONPlaceholder always returns 101 for new posts).
+     *
+     * EXAMPLE: Using apiTestHelpers with POST request
      */
-    test('Check post user response status code and body', async ({request}) => {
-        logger.info('Sending POST /posts to create a new post');
-        response = await usersRequest.createUser(request);
+    test('Check post user response status code and body', async ({apiTestHelpers}) => {
+        const { apiActions, assert } = apiTestHelpers;
+
+        // Automatic logging of POST request/response with payload
+        const postData = {
+            title: 'foo',
+            body: 'bar',
+            userId: 1
+        };
+        response = await apiActions.post('https://jsonplaceholder.typicode.com/posts', postData, 'Create a new post');
         jsonResponse = await response.json();
-        logger.info(`Response status: ${response.status()}, Created post id: ${jsonResponse.id}`);
-        logger.debug(`Response body: ${JSON.stringify(jsonResponse)}`);
-        await expect(jsonResponse.id).toEqual(101);      // JSONPlaceholder returns id: 101
-        logger.info('Verified created post id=101');
+
+        // Automatic assertion logging with assert helper
+        await assert.toEqual(jsonResponse.id, 101, 'Verify created post id=101');
     });
 });

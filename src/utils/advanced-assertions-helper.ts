@@ -13,7 +13,8 @@ import { Logger } from '../utils/Logger';
  *   - Soft assertions: when `soft: true`, failures are collected instead of throwing immediately.
  *     Call `assertAllSoftAssertions()` at the end to fail the test with all collected errors.
  *   - Hard assertions (default): failures throw immediately, stopping the test
- *   - Screenshot on failure: captures a full-page screenshot for every failed assertion
+ *   - Screenshot on failure: captures a full-page screenshot for every failed assertion (UI tests only)
+ *   - API test support: screenshots automatically disabled via constructor parameter for API tests
  *   - Assertion statistics: track total/passed/failed counts via getAssertionStats()
  *
  * Assertion categories:
@@ -31,6 +32,7 @@ export class AdvancedAssertionsHelper {
     private readonly logger: Log4jsLogger;
     private assertionCounter: number = 0;   // Running count of all assertions executed
     private screenshotDir: string;           // Directory for assertion failure screenshots
+    private readonly enableScreenshots: boolean; // Controls whether screenshots are captured
 
     /**
      * Accumulated soft assertion failures. Each entry stores the assertion number,
@@ -46,18 +48,20 @@ export class AdvancedAssertionsHelper {
 
     /**
      * Creates a new AdvancedAssertionsHelper and initializes logging.
-     * @param page - Playwright Page instance for screenshot capture and page-level assertions
+     * @param page - Playwright Page instance for screenshot capture and page-level assertions.
      * @param testName - Used to label log output for this helper instance
+     * @param enableScreenshots - When false, disables screenshot capture (useful for API tests). Defaults to true.
      */
-    constructor(page: Page, testName?: string) {
+    constructor(page: Page, testName?: string, enableScreenshots: boolean = true) {
         this.page = page;
         this.logger = Logger.getLogger(`Assertions-${testName || "default"}`);
+        this.enableScreenshots = enableScreenshots;
 
         // Configure screenshot output directory for assertion failures
         this.screenshotDir = path.join(process.cwd(), 'test-logs', 'assertion-failures');
         this.ensureDirectoryExists(this.screenshotDir);
 
-        this.logger.info(`=== Assertions Helper Started: ${testName || "default"} ===`);
+        this.logger.info(`=== Assertions Helper Started: ${testName || "default"} (Screenshots: ${enableScreenshots ? 'enabled' : 'disabled'}) ===`);
     }
 
     /** Creates a directory (and parents) if it does not already exist */
@@ -67,8 +71,23 @@ export class AdvancedAssertionsHelper {
         }
     }
 
-    /** Captures a full-page screenshot when an assertion fails. Returns the screenshot path. */
+    /**
+     * Captures a full-page screenshot when an assertion fails. Returns the screenshot path.
+     * Skips screenshot capture for API tests or when screenshots are disabled.
+     */
     private async captureFailureScreenshot(assertionName: string): Promise<string> {
+        // Skip screenshots if disabled (e.g., for API tests)
+        if (!this.enableScreenshots) {
+            this.logger.debug(`Skipping screenshot - screenshots disabled (API test context)`);
+            return '';
+        }
+
+        // Skip screenshots if page context is not valid
+        if (!this.page || !this.isPageContextValid()) {
+            this.logger.debug(`Skipping screenshot - no valid page context`);
+            return '';
+        }
+
         const timestamp = Date.now();
         const screenshotName = `assertion-fail-${assertionName.replace(/\s+/g, '-')}-${timestamp}.png`;
         const screenshotPath = path.join(this.screenshotDir, screenshotName);
@@ -83,6 +102,20 @@ export class AdvancedAssertionsHelper {
         } catch (error) {
             this.logger.error(`Could not capture screenshot: ${error}`);
             return '';
+        }
+    }
+
+    /**
+     * Checks if the page has a valid browser context for screenshots.
+     * Returns false for API tests or when page is not properly initialized.
+     */
+    private isPageContextValid(): boolean {
+        try {
+            // Check if page has a valid context (browser context exists)
+            return this.page.context() !== null && this.page.context() !== undefined;
+        } catch (error) {
+            // If we can't access context, it's not valid
+            return false;
         }
     }
 

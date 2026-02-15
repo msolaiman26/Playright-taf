@@ -174,13 +174,15 @@ test('Simple login test', async ({ pomLazyHelpers }) => {
 
 ---
 
-### 3. test-helpers-fixture.ts 🛠️
+### 3. test-helpers-fixture.ts 🛠️ (UI & API)
 
 **Location:** `src/fixtures/test-helpers-fixture.ts`
 
-**Purpose:** Minimal fixture providing only action and assertion helpers (no POM)
+**Purpose:** Minimal fixture providing helpers without POM - supports both UI and API testing
 
-**Provides:**
+**Provides TWO Fixtures:**
+
+#### 3.1 testHelpers (UI Testing)
 ```typescript
 {
     actions: AdvancedActionsHelper,
@@ -195,7 +197,7 @@ test('Simple login test', async ({ pomLazyHelpers }) => {
 - ✅ Uses HelperFactory for consistent helper creation
 
 **When to Use:**
-- Tests that **don't need POM** (e.g., API tests, simple checks)
+- Tests that **don't need POM** (e.g., simple UI checks)
 - Tests that interact with pages **directly**
 - Tests that need **logged actions/assertions only**
 
@@ -213,17 +215,109 @@ test('Direct page interaction', async ({ page, testHelpers }) => {
 });
 ```
 
+---
+
+#### 3.2 apiTestHelpers (API Testing) 🆕
+
+```typescript
+{
+    apiActions: AdvancedAPIHelper,
+    assert: AdvancedAssertionsHelper
+}
+```
+
+**Key Features:**
+
+- ✅ **Automatic API request/response logging** via AdvancedAPIHelper
+- ✅ **Automatic assertion logging** via AdvancedAssertionsHelper
+- ✅ **Test lifecycle logging** (start, end, duration, summary)
+- ✅ **API call summary** (total requests, success/failure counts)
+- ✅ Uses HelperFactory for consistent helper creation
+- ✅ Supports all HTTP methods: GET, POST, PUT, PATCH, DELETE, HEAD
+
+**When to Use:**
+
+- **API tests** that need automatic logging
+- Tests that need **logged API calls and assertions**
+- Tests that want **API call summaries**
+
+**Code Example:**
+```typescript
+import { test } from '../../../src/fixtures/test-helpers-fixture';
+
+test('API test with automatic logging', async ({ apiTestHelpers }) => {
+    const { apiActions, assert } = apiTestHelpers;
+
+    // Automatic request/response logging
+    const response = await apiActions.get('https://api.example.com/users', 'Fetch all users');
+    const jsonResponse = await response.json();
+
+    // Automatic assertion logging
+    await assert.toEqual(response.status(), 200, 'Verify status is 200');
+    await assert.toEqual(jsonResponse.length, 100, 'Verify 100 users returned');
+
+    // Teardown automatically logs:
+    // ✅ API TEST PASSED (250ms)
+    // 📊 API Summary: 1 requests (1 successful, 0 failed)
+    // 📊 Total Assertions: 2 (Passed: 2, Failed: 0)
+});
+```
+
+**Supported HTTP Methods:**
+
+```typescript
+// GET request
+await apiActions.get(url, description);
+
+// POST request
+await apiActions.post(url, data, description);
+
+// PUT request
+await apiActions.put(url, data, description);
+
+// PATCH request
+await apiActions.patch(url, data, description);
+
+// DELETE request
+await apiActions.delete(url, description);
+
+// HEAD request
+await apiActions.head(url, description);
+```
+
+**Automatic Logging Output:**
+
+```log
+▶ API TEST START: "Check get users response success response"
+🌐 [API] GET https://jsonplaceholder.typicode.com/posts | Fetch all posts
+✅ [Response] Status: 200, Duration: 245ms
+✔️ [PASS] Verify status is 200 | Expected: 200, Actual: 200
+✔️ [PASS] Verify 100 posts returned | Expected: 100, Actual: 100
+✅ API TEST PASSED: "Check get users response success response" (250ms)
+📊 API Summary: 1 requests (1 successful, 0 failed)
+📊 Total Assertions: 2 (Passed: 2, Failed: 0)
+```
+
+---
+
 **Used By:**
-- ❌ **Currently NOT used** by any tests (available for future use)
+
+- ✅ `tests/api/specs/users-test.spec.ts` (API tests)
+- ✅ `tests/api/specs/network-interception.spec.ts` (API assertions)
 
 **Pros:**
+
 - ✅ Minimal overhead
 - ✅ Good for simple tests
 - ✅ No POM dependency
+- ✅ **Automatic API logging** (requests, responses, status, duration)
+- ✅ **Automatic assertion logging**
+- ✅ **API call summaries**
 
 **Cons:**
-- ❌ No page object abstraction
-- ❌ Tests couple to page structure
+
+- ❌ No page object abstraction (UI tests)
+- ❌ Tests couple to page structure (UI tests)
 
 ---
 
@@ -363,7 +457,7 @@ test('Login test with auto-navigation', async ({ pomEager, loginPage, actions, a
 | `login-helpers-log4js.spec.ts` | test-fixtures | Login, Home | ✅ Demonstrates granular fixture usage |
 | `login-with-fixture.spec.ts` | login-fixture | Login | ✅ Now using HelperFactory for consistency |
 | `network-interception.spec.ts` | test-helpers-fixture | None (API test) | ✅ Optimized for API testing |
-| `users-test.spec.ts` | test-helpers-fixture | None (API test) | ✅ Using test-helpers for lifecycle logging |
+| `users-test.spec.ts` | test-helpers-fixture (apiTestHelpers) | None (API test) | ✅ Using apiTestHelpers for automatic API logging |
 
 ### Observations
 
@@ -377,8 +471,10 @@ test('Login test with auto-navigation', async ({ pomEager, loginPage, actions, a
 **✅ Recent Improvements:**
 1. ✅ **login-fixture** refactored to use HelperFactory
 2. ✅ **network-interception.spec.ts** migrated to test-helpers-fixture
-3. ✅ **users-test.spec.ts** now uses test-helpers-fixture
+3. ✅ **users-test.spec.ts** now uses test-helpers-fixture with **apiTestHelpers** for automatic API logging
 4. ✅ **login-with-DD.spec.ts** and **login-with-builder.spec.ts** optimized to use pom-lazy
+5. ✅ **AdvancedAPIHelper** created to provide automatic API request/response logging
+6. ✅ **apiTestHelpers fixture** added to test-helpers-fixture for API testing
 
 ---
 
@@ -913,17 +1009,18 @@ Special Cases:
 
 ✅ **All 5 fixtures now use HelperFactory consistently**
 ✅ **All 3 page objects now use HelperFactory consistently**
-✅ **API tests migrated to test-helpers-fixture**
+✅ **API tests migrated to test-helpers-fixture with apiTestHelpers**
+✅ **AdvancedAPIHelper created for automatic API logging**
 ✅ **Single-page tests optimized to use pom-lazy**
 ✅ **Fixture distribution optimized across test suite**
 ✅ **100% HelperFactory adoption across entire framework**
 
-**Files Refactored (Total: 8):**
+**Files Refactored/Created (Total: 12):**
 
 **Fixtures (5):**
 1. `src/fixtures/pom-eager-fixture.ts`
 2. `src/fixtures/pom-lazy-fixture.ts`
-3. `src/fixtures/test-helpers-fixture.ts`
+3. `src/fixtures/test-helpers-fixture.ts` (now includes apiTestHelpers)
 4. `src/fixtures/test-fixtures.ts`
 5. `tests/ui/fixtures/login-fixture.ts`
 
@@ -931,6 +1028,14 @@ Special Cases:
 6. `src/pages/home-page.ts`
 7. `src/pages/login-page.ts`
 8. `src/pages/login-page-log4js.ts`
+
+**Helpers (2):**
+9. `src/utils/advanced-api-helper.ts` (NEW - API testing helper)
+10. `src/factories/helper-factory.ts` (extended for API helpers)
+
+**Tests (2):**
+11. `tests/api/specs/users-test.spec.ts` (updated to use apiTestHelpers)
+12. `tests/api/specs/network-interception.spec.ts` (migrated to test-helpers-fixture)
 
 **Next Steps:**
 1. ⏳ Document fixture selection guidelines in README

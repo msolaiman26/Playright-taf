@@ -21,13 +21,19 @@
  * const { actions, assert } = HelperFactory.createHelpers(page, 'My Test');
  */
 
-import { Page } from '@playwright/test';
+import { Page, APIRequestContext } from '@playwright/test';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
+import { AdvancedAPIHelper } from '../utils/advanced-api-helper';
 import { Logger } from '../utils/Logger';
 
 export interface HelperSet {
     actions: AdvancedActionsHelper;
+    assert: AdvancedAssertionsHelper;
+}
+
+export interface APIHelperSet {
+    apiActions: AdvancedAPIHelper;
     assert: AdvancedAssertionsHelper;
 }
 
@@ -43,11 +49,14 @@ export class HelperFactory {
 
     /**
      * Create an AdvancedAssertionsHelper instance
+     * @param page - Playwright Page instance
+     * @param testName - Test name for logging
+     * @param enableScreenshots - When false, disables screenshot capture (useful for API tests). Defaults to true.
      */
-    static createAssertionsHelper(page: Page, testName: string): AdvancedAssertionsHelper {
+    static createAssertionsHelper(page: Page, testName: string, enableScreenshots: boolean = true): AdvancedAssertionsHelper {
         const logger = Logger.getLogger('HelperFactory');
-        logger.debug(`Creating AdvancedAssertionsHelper for test: ${testName}`);
-        return new AdvancedAssertionsHelper(page, testName);
+        logger.debug(`Creating AdvancedAssertionsHelper for test: ${testName} (screenshots: ${enableScreenshots ? 'enabled' : 'disabled'})`);
+        return new AdvancedAssertionsHelper(page, testName, enableScreenshots);
     }
 
     /**
@@ -76,5 +85,35 @@ export class HelperFactory {
         logger.debug(`Creating complete test suite for: ${testName}`);
 
         return this.createHelpers(page, testName);
+    }
+
+    // ===================== API Testing Helpers =====================
+
+    /**
+     * Create an AdvancedAPIHelper instance for API testing
+     * @param request - Playwright APIRequestContext from test fixture
+     * @param testName - Test name for logging
+     */
+    static createAPIHelper(request: APIRequestContext, testName: string): AdvancedAPIHelper {
+        const logger = Logger.getLogger('HelperFactory');
+        logger.debug(`Creating AdvancedAPIHelper for test: ${testName}`);
+        return new AdvancedAPIHelper(request, testName);
+    }
+
+    /**
+     * Create API helpers (apiActions + assertions) for API testing
+     * Note: Screenshots are disabled for API tests since there's no UI context
+     * @param request - Playwright APIRequestContext from test fixture
+     * @param page - Playwright Page instance (used for assertion helper, but screenshots disabled)
+     * @param testName - Test name for logging
+     */
+    static createAPIHelpers(request: APIRequestContext, page: Page, testName: string): APIHelperSet {
+        const logger = Logger.getLogger('HelperFactory');
+        logger.debug(`Creating API helper set (apiActions + assertions) for test: ${testName}`);
+
+        return {
+            apiActions: this.createAPIHelper(request, testName),
+            assert: this.createAssertionsHelper(page, testName, false) // Disable screenshots for API tests
+        };
     }
 }
