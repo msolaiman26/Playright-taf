@@ -8,23 +8,26 @@
  * Fixture provides: pomEagerHelpers { pomEager, actions, assert }
  */
 import { test } from '../../../src/fixtures/pom-eager-fixture';
+import { Logger } from '../../../src/utils/Logger';
+
+const logger = Logger.getLogger('login-with-POManagerEager');
 
 // =================== Lifecycle Hooks ======================
 // These hooks run logging for test lifecycle visibility in reports
 
 /** Runs once before any test in this file — used for suite-level setup logging */
 test.beforeAll('This actions run before all tests',async () =>{
-    console.log('This actions run before all tests');
+    logger.info('This actions run before all tests');
 })
 
 /** Runs after each test — logs which test just completed */
 test.afterEach('This actions run after every test',async ({}, testInfo) =>{
-    console.log(`test ends for: ${testInfo.title}`);
+    logger.info(`test ends for: ${testInfo.title}`);
 })
 
 /** Runs once after all tests in this file — used for suite-level teardown logging */
 test.afterAll('This actions run after all tests',async () =>{
-    console.log('This actions run after all tests');
+    logger.info('This actions run after all tests');
 })
 
 // ==================== Test Cases ======================
@@ -33,7 +36,7 @@ test.describe('Login test', ()=> {
     test('valid login', async ({ pomEagerHelpers }) => {
         const { pomEager } = pomEagerHelpers;
         await pomEager.getLoginPage().navigateToLogin();
-        console.log(`test starts for: valid login`);
+        logger.info(`test starts for: valid login`);
         await pomEager.getLoginPage().login('Admin', 'admin123');
         await pomEager.getHomePage().assertProfileIcon();
     });
@@ -42,7 +45,7 @@ test.describe('Login test', ()=> {
     test('invalid login', async ({ pomEagerHelpers }) => {
         const { pomEager } = pomEagerHelpers;
         await pomEager.getLoginPage().navigateToLogin();
-        console.log(`test starts for: invalid login`);
+        logger.info(`test starts for: invalid login`);
         await pomEager.getLoginPage().login('Admin', 'admin12');
         await pomEager.getLoginPage().assertInvalidLoginMessage();
     });

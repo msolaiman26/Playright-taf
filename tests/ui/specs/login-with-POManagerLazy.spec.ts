@@ -14,27 +14,30 @@
  * Fixture provides: pomLazyHelpers { pomLazy, actions, assert }
  */
 import { test } from '../../../src/fixtures/pom-lazy-fixture';
+import { Logger } from '../../../src/utils/Logger';
+
+const logger = Logger.getLogger('login-with-POManagerLazy');
 
 // =================== Lifecycle Hooks ======================
 
 /** Runs once before any test in this file */
 test.beforeAll('This actions run before all tests',async () =>{
-    console.log('This actions run before all tests');
+    logger.info('This actions run before all tests');
 })
 
 /** Runs before each individual test — logs the test name */
 test.beforeEach('This actions run before every test',async ({page}, testInfo) =>{
-    console.log(`test starts for: ${testInfo.title}`);
+    logger.info(`test starts for: ${testInfo.title}`);
 })
 
 /** Runs after each individual test — logs the test name */
 test.afterEach('This actions run after every test',async ({page}, testInfo) =>{
-    console.log(`test ends for: ${testInfo.title}`);
+    logger.info(`test ends for: ${testInfo.title}`);
 })
 
 /** Runs once after all tests in this file */
 test.afterAll('This actions run after all tests',async () =>{
-    console.log('This actions run after all tests');
+    logger.info('This actions run after all tests');
 })
 
 // ==================== Test Cases ======================

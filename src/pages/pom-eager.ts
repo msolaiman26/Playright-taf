@@ -1,6 +1,8 @@
 import { type Page } from "@playwright/test";
 import { LoginPage } from "./login-page";
 import { HomePage } from "./home-page";
+import { Logger as Log4jsLogger } from 'log4js';
+import { Logger } from '../utils/Logger';
 
 /**
  * POMEager — Page Object Manager with Eager Initialization.
@@ -19,6 +21,7 @@ import { HomePage } from "./home-page";
  */
 export class POMEager {
     private readonly page: Page;
+    private readonly logger: Log4jsLogger;
     private readonly loginPage: LoginPage;
     private readonly homePage: HomePage;
 
@@ -30,6 +33,8 @@ export class POMEager {
      */
     constructor(page: Page, testName: string = "") {
         this.page = page;
+        this.logger = Logger.getLogger(`POMEager-${testName}`);
+        this.logger.info("Initializing all page objects eagerly");
         this.loginPage = new LoginPage(this.page, testName);
         this.homePage = new HomePage(this.page, testName);
     }

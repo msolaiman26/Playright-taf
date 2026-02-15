@@ -15,6 +15,9 @@
 import { test } from '../../../src/fixtures/pom-eager-fixture';
 import tsData from '../../../src/data/test-users';
 import mockedResponse from '../../../src/mocks/response-interception.json'
+import { Logger } from '../../../src/utils/Logger';
+
+const logger = Logger.getLogger('network-interception');
 
 test.describe('Network interception', ()=> {
 
@@ -31,20 +34,24 @@ test.describe('Network interception', ()=> {
      */
     test('intercept browser api response', async ({ page, pomEagerHelpers, request }) => {
         const { pomEager, actions } = pomEagerHelpers;
+        logger.info('Logging in to OrangeHRM to intercept browser API response');
         await pomEager.getLoginPage().navigateToLogin();
         await pomEager.getLoginPage().login(tsData.username, tsData.password);
         await actions.click(page.getByText("PIM"), 'Click PIM menu');
 
         // Wait for the employees API response triggered by clicking PIM
+        logger.info('Waiting for employees API response from PIM page');
         const employeeResponse = await page.waitForResponse('https://opensource-demo.orangehrmlive.com/web/index.php/api/v2/pim/employees?limit=50&offset=0&model=detailed&includeEmployees=onlyCurrent&sortField=employee.firstName&sortOrder=ASC');
         const employeeResponseBody = await employeeResponse.json();
-        console.log(employeeResponseBody);
+        logger.info(`Captured employees API response, status: ${employeeResponse.status()}, total records: ${employeeResponseBody.data?.length ?? 0}`);
+        logger.debug(`Employee response body: ${JSON.stringify(employeeResponseBody)}`);
 
         // Extract the first employee's number to use in a DELETE request
         const empNumber = employeeResponseBody.data[0].empNumber;
-        console.log(empNumber);
+        logger.info(`Extracted first employee number: ${empNumber}`);
 
         // Send a DELETE request to remove the employee (demonstrates API chaining)
+        logger.info(`Sending DELETE /pim/employees with empNumber: ${empNumber}`);
         const requestBody = { "ids": [empNumber] };
         const headers = { "Cookie": "orangehrm=73s9frst1lclj2cod0lc3uaf4b" };
         const deletedEmpResponse = await request.delete('https://opensource-demo.orangehrmlive.com/web/index.php/api/v2/pim/employees',{
@@ -52,7 +59,8 @@ test.describe('Network interception', ()=> {
             headers: headers
         })
         const deletedEmployeeResponseBody = await deletedEmpResponse.json();
-        console.log(deletedEmployeeResponseBody);
+        logger.info(`DELETE response status: ${deletedEmpResponse.status()}`);
+        logger.debug(`DELETE response body: ${JSON.stringify(deletedEmployeeResponseBody)}`);
     });
 
     /**
@@ -68,7 +76,9 @@ test.describe('Network interception', ()=> {
         const { actions, assert } = pomEagerHelpers;
 
         // Intercept the randomuser.me API and return our mock data instead
+        logger.info('Setting up route interception for https://api.randomuser.me/?nat=us');
         await page.route('https://api.randomuser.me/?nat=us', async route =>{
+            logger.info('Intercepted randomuser.me request — fulfilling with mock data');
             await route.fulfill({
                 body: JSON.stringify(mockedResponse)  // Local mock from src/mocks/
             })
@@ -76,7 +86,9 @@ test.describe('Network interception', ()=> {
 
         await actions.goto('https://demo.automationtesting.in/DynamicData.html', 'Navigate to dynamic data page');
         await actions.click(page.locator('#save'), 'Click save button');
+        logger.info('Verifying mocked data is displayed: "Playwright User"');
         await assert.toContainText(page.locator('#loading'), "First Name : PlaywrightLast Name : User", 'Verify mocked data');
+        logger.info('Mocked response verification passed');
     });
 
     /**
@@ -93,11 +105,15 @@ test.describe('Network interception', ()=> {
         const { actions, assert } = pomEagerHelpers;
 
         // Intercept, fetch the real response, modify it, then return the modified version
+        logger.info('Setting up route interception for response modification on randomuser.me');
         await page.route('https://api.randomuser.me/?nat=us', async route =>{
+            logger.info('Intercepted request — fetching real response to modify');
             const response = await route.fetch();                     // Make the real API call
             const responseBody = await response.json();               // Parse the real response
+            logger.debug(`Original response name: ${responseBody.results[0].name.first} ${responseBody.results[0].name.last}`);
             responseBody.results[0].name.first = "Udemy";             // Modify the first name
             responseBody.results[0].name.last = "Course";             // Modify the last name
+            logger.info('Modified response name to "Udemy Course"');
             await route.fulfill({
                 body: JSON.stringify(responseBody)                    // Return the modified data
             })
@@ -105,7 +121,9 @@ test.describe('Network interception', ()=> {
 
         await actions.goto('https://demo.automationtesting.in/DynamicData.html', 'Navigate to dynamic data page');
         await actions.click(page.locator('#save'), 'Click save button');
+        logger.info('Verifying modified data is displayed: "Udemy Course"');
         await assert.toContainText(page.locator('#loading'), "First Name : UdemyLast Name : Course", 'Verify modified mocked data');
+        logger.info('Modified response verification passed');
     });
 
     /**
@@ -121,14 +139,18 @@ test.describe('Network interception', ()=> {
         const { actions, assert } = pomEagerHelpers;
 
         // Redirect all Wikipedia API calls to always search for "Udemy"
+        logger.info('Setting up route redirection for Wikipedia API — redirecting all searches to "Udemy"');
         await page.route('https://en.wikipedia.org/w/api.php?*', async route =>{
+            logger.info(`Intercepted Wikipedia API request — redirecting to Udemy search`);
             await route.continue({url: 'https://en.wikipedia.org/w/api.php?action=opensearch&search=Udemy&format=json&callback=%3F&callback=callback'})
         });
 
         await actions.goto('https://testautomationpractice.blogspot.com/', 'Navigate to test automation practice');
         await actions.fill(page.locator("//input[@id='Wikipedia1_wikipedia-search-input']"), 'Hello', 'Enter search term');
         await actions.click(page.locator("//input[@type='submit']"), 'Click search button');
+        logger.info('Verifying redirected search result shows "Udemy"');
         await assert.toBeVisible(page.locator("//a[normalize-space()='Udemy']"), 'Verify intercepted result is visible');
+        logger.info('Request redirection verification passed');
     });
 
     /**
@@ -144,10 +166,13 @@ test.describe('Network interception', ()=> {
         const { actions } = pomEagerHelpers;
 
         // Block all image requests matching .png, .jpg, or .jpeg
+        logger.info('Setting up route to abort all image requests (*.png, *.jpg, *.jpeg)');
         await page.route('**/*.{png,jpg,jpeg}', async route =>{
+            logger.debug(`Aborting image request: ${route.request().url()}`);
             await route.abort();
         });
         await actions.goto('https://practice.automationtesting.in/', 'Navigate with aborted image requests');
+        logger.info('Page loaded with images blocked successfully');
     });
 
 });

@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test';
 import { POMEager } from '../pages/pom-eager';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
+import { Logger } from '../utils/Logger';
 
 /**
  * Type definition bundling the POMEager page object manager with
@@ -33,19 +34,28 @@ type POMEagerHelpers = {
  */
 export const test = base.extend<{ pomEagerHelpers: POMEagerHelpers }>({
     pomEagerHelpers: async ({ page }, use, testInfo) => {
+        const logger = Logger.getLogger(`Fixture-POMEager-${testInfo.title.replace(/\s+/g, '_')}`);
+
         // Setup: create all helpers eagerly (before test body runs)
         const pomEager = new POMEager(page, testInfo.title);
         const actions = new AdvancedActionsHelper(page, testInfo.title);
         const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+
+        logger.info(`▶ TEST START: "${testInfo.title}"`);
 
         // Hand control to the test — everything before use() is "setup", after is "teardown"
         await use({ pomEager, actions, assert });
 
         // Teardown: log the final test result
         if (testInfo.status === 'passed') {
-            console.log('\n===Test Passed===');
-        } else {
-            console.log('\n===Test Failed===');
+            logger.info(`✅ TEST PASSED: "${testInfo.title}" (${testInfo.duration}ms)`);
+        } else if (testInfo.status === 'failed') {
+            logger.error(`❌ TEST FAILED: "${testInfo.title}" (${testInfo.duration}ms)`);
+            if (testInfo.error) {
+                logger.error(`   Error: ${testInfo.error.message}`);
+            }
+        } else if (testInfo.status === 'skipped') {
+            logger.warn(`⏭ TEST SKIPPED: "${testInfo.title}"`);
         }
     }
 });

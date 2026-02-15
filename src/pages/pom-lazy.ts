@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 import { LoginPage } from "./login-page";
 import { HomePage } from "./home-page";
+import { LoginPage4js } from "./login-page-log4js";
 
 /**
  * POMLazy — Page Object Manager with Lazy Initialization.
@@ -19,7 +20,7 @@ import { HomePage } from "./home-page";
 export class POMLazy {
     private readonly page: Page;
     private readonly _testName?: string;
-    private _loginPage?: LoginPage;   // Cached LoginPage instance (created on first access)
+    private _loginPage?: LoginPage4js;   // Cached LoginPage instance (created on first access)
     private _homePage?: HomePage;     // Cached HomePage instance (created on first access)
 
     // ===================== Constructor =====================
@@ -37,9 +38,9 @@ export class POMLazy {
     // Each getter creates the page object on first access, then returns the cached instance.
 
     /** Returns the LoginPage instance, creating it on first access */
-    get loginPage(): LoginPage {
+    get loginPage(): LoginPage4js {
         if (!this._loginPage) {
-            this._loginPage = new LoginPage(this.page, this._testName ?? "");
+            this._loginPage = new LoginPage4js(this.page, this._testName ?? "");
         }
         return this._loginPage;
     }

@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "dotenv": "^16.4.7",
+    "log4js": "^6.9.1",
     "playwright": "^1.58.2",
     "playwright-lighthouse": "^4.0.0"
   }

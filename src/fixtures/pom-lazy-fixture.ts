@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test';
 import { POMLazy } from '../pages/pom-lazy';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
+import { Logger } from '../utils/Logger';
 
 /**
  * Type definition bundling the POMLazy page object manager with
@@ -33,19 +34,28 @@ type POMLazyHelpers = {
  */
 export const test = base.extend<{ pomLazyHelpers: POMLazyHelpers }>({
     pomLazyHelpers: async ({ page }, use, testInfo) => {
+        const logger = Logger.getLogger(`Fixture-POMLazy-${testInfo.title.replace(/\s+/g, '_')}`);
+
         // Setup: create the lazy POM and helpers (page objects not yet created)
         const pomLazy = new POMLazy(page, testInfo.title);
         const actions = new AdvancedActionsHelper(page, testInfo.title);
         const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+
+        logger.info(`▶ TEST START: "${testInfo.title}"`);
 
         // Hand control to the test
         await use({ pomLazy, actions, assert });
 
         // Teardown: log the final test result
         if (testInfo.status === 'passed') {
-            console.log('\n===Test Passed===');
-        } else {
-            console.log('\n===Test Failed===');
+            logger.info(`✅ TEST PASSED: "${testInfo.title}" (${testInfo.duration}ms)`);
+        } else if (testInfo.status === 'failed') {
+            logger.error(`❌ TEST FAILED: "${testInfo.title}" (${testInfo.duration}ms)`);
+            if (testInfo.error) {
+                logger.error(`   Error: ${testInfo.error.message}`);
+            }
+        } else if (testInfo.status === 'skipped') {
+            logger.warn(`⏭ TEST SKIPPED: "${testInfo.title}"`);
         }
     }
 });

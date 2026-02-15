@@ -1,13 +1,15 @@
 import { Locator, Page, expect } from "@playwright/test";
 import fs from "fs";
 import path from "path";
+import { Logger as Log4jsLogger } from 'log4js';
+import { Logger } from '../utils/Logger';
 
 /**
  * AdvancedAssertionsHelper — A comprehensive assertion library with logging,
  * soft/hard assertion modes, and automatic failure diagnostics.
  *
  * Features:
- *   - Dual logging: every assertion result is printed to console AND written to a log file
+ *   - Logging via log4js: every assertion result is logged to console, file, and HTML report
  *   - Soft assertions: when `soft: true`, failures are collected instead of throwing immediately.
  *     Call `assertAllSoftAssertions()` at the end to fail the test with all collected errors.
  *   - Hard assertions (default): failures throw immediately, stopping the test
@@ -23,14 +25,11 @@ import path from "path";
  *   - Attributes:  toHaveAttribute, toHaveClass, toHaveCSS
  *   - URL/Page:    toHaveURL, toHaveTitle
  *   - Custom:      toBeTruthy, toBeFalsy, toEqual, toContain, toBeGreaterThan, toBeLessThan
- *
- * Log files: <project-root>/test-logs/<testName>_assertions_<timestamp>.log
- * Failure screenshots: <project-root>/test-logs/assertion-failures/
  */
 export class AdvancedAssertionsHelper {
     readonly page: Page;
+    private readonly logger: Log4jsLogger;
     private assertionCounter: number = 0;   // Running count of all assertions executed
-    private logFilePath: string;             // Absolute path to the assertion log file
     private screenshotDir: string;           // Directory for assertion failure screenshots
 
     /**
@@ -46,28 +45,19 @@ export class AdvancedAssertionsHelper {
     }> = [];
 
     /**
-     * Creates a new AdvancedAssertionsHelper and initializes the assertion log file.
+     * Creates a new AdvancedAssertionsHelper and initializes logging.
      * @param page - Playwright Page instance for screenshot capture and page-level assertions
-     * @param testName - Used to generate a unique, human-readable log file name
+     * @param testName - Used to label log output for this helper instance
      */
     constructor(page: Page, testName?: string) {
         this.page = page;
-
-        // Generate a timestamp-based file name, sanitizing special characters
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const safeName = testName?.replace(/[^a-z0-9]/gi, '_') || 'test';
-        this.logFilePath = path.join(process.cwd(), 'test-logs', `${safeName}_assertions_${timestamp}.log`);
+        this.logger = Logger.getLogger(`Assertions-${testName || "default"}`);
 
         // Configure screenshot output directory for assertion failures
         this.screenshotDir = path.join(process.cwd(), 'test-logs', 'assertion-failures');
-
-        // Ensure directories exist before any writes
-        this.ensureDirectoryExists(path.dirname(this.logFilePath));
         this.ensureDirectoryExists(this.screenshotDir);
 
-        // Write the log file header
-        this.writeToLogFile(`=== Assertion Test Started: ${safeName} ===\n`);
-        this.writeToLogFile(`Timestamp: ${new Date().toISOString()}\n\n`);
+        this.logger.info(`=== Assertions Helper Started: ${testName || "default"} ===`);
     }
 
     /** Creates a directory (and parents) if it does not already exist */
@@ -75,30 +65,6 @@ export class AdvancedAssertionsHelper {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-    }
-
-    /** Appends a message to the assertion log file (synchronous I/O) */
-    private writeToLogFile(message: string) {
-        fs.appendFileSync(this.logFilePath, message);
-    }
-
-    /**
-     * Logs a timestamped message to both console and the log file.
-     * FAILED and SOFT_FAIL messages are routed to console.error for visibility.
-     */
-    private async log(level: 'ASSERTION' | 'PASSED' | 'FAILED' | 'DATA' | 'SOFT_FAIL', message: string) {
-        const timestamp = new Date().toISOString();
-        const logMessage = `[${timestamp}] [${level}] ${message}`;
-
-        // Console log
-        if (level === 'FAILED' || level === 'SOFT_FAIL') {
-            console.error(logMessage);
-        } else {
-            console.log(logMessage);
-        }
-
-        // File log
-        this.writeToLogFile(logMessage + '\n');
     }
 
     /** Captures a full-page screenshot when an assertion fails. Returns the screenshot path. */
@@ -112,10 +78,10 @@ export class AdvancedAssertionsHelper {
                 path: screenshotPath,
                 fullPage: true
             });
-            await this.log('DATA', `Screenshot saved: ${screenshotPath}`);
+            this.logger.debug(`Screenshot saved: ${screenshotPath}`);
             return screenshotPath;
         } catch (error) {
-            await this.log('FAILED', `Could not capture screenshot: ${error}`);
+            this.logger.error(`Could not capture screenshot: ${error}`);
             return '';
         }
     }
@@ -145,19 +111,19 @@ export class AdvancedAssertionsHelper {
         const assertionLabel = `Assertion #${this.assertionCounter}`;
         const type = soft ? 'SOFT' : 'HARD';
 
-        await this.log('ASSERTION', `${assertionLabel} [${type}]: ${description}`);
+        this.logger.info(`${assertionLabel} [${type}]: ${description}`);
         const startTime = Date.now();
 
         try {
             await assertionFn();
             const duration = Date.now() - startTime;
-            await this.log('PASSED', `${assertionLabel}: ${description} (${duration}ms)`);
+            this.logger.info(`${assertionLabel}: ${description} - PASSED (${duration}ms)`);
         } catch (error) {
             const duration = Date.now() - startTime;
             const screenshotPath = await this.captureFailureScreenshot(description);
 
             if (soft) {
-                await this.log('SOFT_FAIL', `${assertionLabel}: ${description} (${duration}ms) - ${(error as Error).message}`);
+                this.logger.warn(`${assertionLabel}: ${description} - SOFT_FAIL (${duration}ms) - ${(error as Error).message}`);
                 this.softAssertionErrors.push({
                     assertionNumber: this.assertionCounter,
                     description,
@@ -165,7 +131,7 @@ export class AdvancedAssertionsHelper {
                     screenshotPath
                 });
             } else {
-                await this.log('FAILED', `${assertionLabel}: ${description} (${duration}ms) - ${(error as Error).message}`);
+                this.logger.error(`${assertionLabel}: ${description} - FAILED (${duration}ms) - ${(error as Error).message}`);
                 throw error;
             }
         }
@@ -191,7 +157,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveText(locator: Locator, expected: string | RegExp | Array<string | RegExp>, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert element has text: "${expected}"`;
-        await this.log('DATA', `Expected text: ${JSON.stringify(expected)}`);
+        this.logger.debug(`Expected text: ${JSON.stringify(expected)}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toHaveText(expected);
@@ -200,7 +166,7 @@ export class AdvancedAssertionsHelper {
 
     async toContainText(locator: Locator, expected: string | RegExp | Array<string | RegExp>, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert element contains text: "${expected}"`;
-        await this.log('DATA', `Expected to contain: ${JSON.stringify(expected)}`);
+        this.logger.debug(`Expected to contain: ${JSON.stringify(expected)}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toContainText(expected);
@@ -211,7 +177,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveValue(locator: Locator, expected: string | RegExp, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert input has value: "${expected}"`;
-        await this.log('DATA', `Expected value: ${expected}`);
+        this.logger.debug(`Expected value: ${expected}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toHaveValue(expected);
@@ -230,7 +196,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveCount(locator: Locator, expected: number, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert element count is ${expected}`;
-        await this.log('DATA', `Expected count: ${expected}`);
+        this.logger.debug(`Expected count: ${expected}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toHaveCount(expected);
@@ -278,7 +244,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveAttribute(locator: Locator, name: string, value: string | RegExp, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert element has attribute "${name}" with value "${value}"`;
-        await this.log('DATA', `Attribute: ${name}, Expected: ${value}`);
+        this.logger.debug(`Attribute: ${name}, Expected: ${value}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toHaveAttribute(name, value);
@@ -287,7 +253,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveClass(locator: Locator, expected: string | RegExp | Array<string | RegExp>, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert element has class: "${expected}"`;
-        await this.log('DATA', `Expected class(es): ${JSON.stringify(expected)}`);
+        this.logger.debug(`Expected class(es): ${JSON.stringify(expected)}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toHaveClass(expected);
@@ -296,7 +262,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveCSS(locator: Locator, name: string, value: string | RegExp, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert element has CSS "${name}": "${value}"`;
-        await this.log('DATA', `CSS Property: ${name}, Expected: ${value}`);
+        this.logger.debug(`CSS Property: ${name}, Expected: ${value}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(locator).toHaveCSS(name, value);
@@ -307,7 +273,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveURL(expected: string | RegExp, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert page URL is "${expected}"`;
-        await this.log('DATA', `Expected URL: ${expected}`);
+        this.logger.debug(`Expected URL: ${expected}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(this.page).toHaveURL(expected);
@@ -316,7 +282,7 @@ export class AdvancedAssertionsHelper {
 
     async toHaveTitle(expected: string | RegExp, description?: string, soft: boolean = false) {
         const logMessage = description || `Assert page title is "${expected}"`;
-        await this.log('DATA', `Expected title: ${expected}`);
+        this.logger.debug(`Expected title: ${expected}`);
 
         await this.handleAssertion(logMessage, async () => {
             await expect(this.page).toHaveTitle(expected);
@@ -327,7 +293,7 @@ export class AdvancedAssertionsHelper {
 
     async toBeTruthy(value: any, description: string, soft: boolean = false) {
         const logMessage = description || `Assert value is truthy`;
-        await this.log('DATA', `Value: ${JSON.stringify(value)}`);
+        this.logger.debug(`Value: ${JSON.stringify(value)}`);
 
         await this.handleAssertion(logMessage, async () => {
             expect(value).toBeTruthy();
@@ -336,7 +302,7 @@ export class AdvancedAssertionsHelper {
 
     async toBeFalsy(value: any, description: string, soft: boolean = false) {
         const logMessage = description || `Assert value is falsy`;
-        await this.log('DATA', `Value: ${JSON.stringify(value)}`);
+        this.logger.debug(`Value: ${JSON.stringify(value)}`);
 
         await this.handleAssertion(logMessage, async () => {
             expect(value).toBeFalsy();
@@ -345,7 +311,7 @@ export class AdvancedAssertionsHelper {
 
     async toEqual(actual: any, expected: any, description: string, soft: boolean = false) {
         const logMessage = description || `Assert values are equal`;
-        await this.log('DATA', `Actual: ${JSON.stringify(actual)}, Expected: ${JSON.stringify(expected)}`);
+        this.logger.debug(`Actual: ${JSON.stringify(actual)}, Expected: ${JSON.stringify(expected)}`);
 
         await this.handleAssertion(logMessage, async () => {
             expect(actual).toEqual(expected);
@@ -354,7 +320,7 @@ export class AdvancedAssertionsHelper {
 
     async toContain(haystack: string | any[], needle: any, description: string, soft: boolean = false) {
         const logMessage = description || `Assert contains value`;
-        await this.log('DATA', `Haystack: ${JSON.stringify(haystack)}, Needle: ${JSON.stringify(needle)}`);
+        this.logger.debug(`Haystack: ${JSON.stringify(haystack)}, Needle: ${JSON.stringify(needle)}`);
 
         await this.handleAssertion(logMessage, async () => {
             expect(haystack).toContain(needle);
@@ -363,7 +329,7 @@ export class AdvancedAssertionsHelper {
 
     async toBeGreaterThan(actual: number, expected: number, description: string, soft: boolean = false) {
         const logMessage = description || `Assert ${actual} > ${expected}`;
-        await this.log('DATA', `Actual: ${actual}, Expected (greater than): ${expected}`);
+        this.logger.debug(`Actual: ${actual}, Expected (greater than): ${expected}`);
 
         await this.handleAssertion(logMessage, async () => {
             expect(actual).toBeGreaterThan(expected);
@@ -372,7 +338,7 @@ export class AdvancedAssertionsHelper {
 
     async toBeLessThan(actual: number, expected: number, description: string, soft: boolean = false) {
         const logMessage = description || `Assert ${actual} < ${expected}`;
-        await this.log('DATA', `Actual: ${actual}, Expected (less than): ${expected}`);
+        this.logger.debug(`Actual: ${actual}, Expected (less than): ${expected}`);
 
         await this.handleAssertion(logMessage, async () => {
             expect(actual).toBeLessThan(expected);
@@ -409,14 +375,12 @@ export class AdvancedAssertionsHelper {
 
             const summary = `\n${'='.repeat(80)}\nSOFT ASSERTION FAILURES SUMMARY\n${'='.repeat(80)}\nTotal Failures: ${this.softAssertionErrors.length}\nTotal Assertions: ${this.assertionCounter}\n${'='.repeat(80)}\n\n${errorDetails}\n\n${'='.repeat(80)}`;
 
-            await this.log('FAILED', `${this.softAssertionErrors.length} soft assertion(s) failed`);
-            this.writeToLogFile(summary + '\n');
-            console.error(summary);
+            this.logger.error(`${this.softAssertionErrors.length} soft assertion(s) failed`);
+            this.logger.error(summary);
 
-            throw new Error(`${this.softAssertionErrors.length} soft assertion(s) failed. See log file: ${this.logFilePath}`);
+            throw new Error(`${this.softAssertionErrors.length} soft assertion(s) failed.`);
         } else {
-            const successMessage = `All ${this.assertionCounter} assertions passed!`;
-            await this.log('PASSED', successMessage);
+            this.logger.info(`All ${this.assertionCounter} assertions passed!`);
         }
     }
 
@@ -425,7 +389,7 @@ export class AdvancedAssertionsHelper {
      */
     clearSoftAssertions() {
         this.softAssertionErrors = [];
-        this.writeToLogFile('\n--- Soft assertions cleared ---\n\n');
+        this.logger.info('Soft assertions cleared');
     }
 
     /**
@@ -438,14 +402,4 @@ export class AdvancedAssertionsHelper {
             failed: this.softAssertionErrors.length
         };
     }
-
-    /**
-     * Get test summary
-     */
-/*     getSummary(): string {
-        const stats = this.getAssertionStats();
-        const summary = `\n=== Assertion Test Summary ===\nTotal Steps: ${this.stepCounter}\nTotal Assertions: ${stats.total}\nPassed: ${stats.passed}\nFailed: ${stats.failed}\nLog File: ${this.logFilePath}\n`;
-        this.writeToLogFile(summary);
-        return summary;
-    } */
 }

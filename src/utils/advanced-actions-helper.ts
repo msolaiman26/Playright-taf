@@ -1,53 +1,43 @@
 import { Locator, Page } from "@playwright/test";
 import fs from "fs";
 import path from "path";
+import { Logger as Log4jsLogger } from 'log4js';
+import { Logger } from '../utils/Logger';
 
 /**
  * AdvancedActionsHelper — A wrapper around common Playwright page interactions
  * that adds comprehensive logging, step tracking, and failure diagnostics.
  *
  * Features:
- *   - Dual logging: every action is printed to console AND written to a unique log file
+ *   - Logging via log4js: every action is logged to console, file, and HTML report
  *   - Automatic step numbering (Step 1, Step 2, ...) for easy traceability
  *   - Performance timing: each action records its duration in milliseconds
  *   - Screenshot on failure: when an action throws, a full-page screenshot is saved
  *   - Sensitive data masking: the fill() method can mask passwords in log output
- *
- * Log files are written to: <project-root>/test-logs/<testName>_<timestamp>.log
- * Failure screenshots are saved to: <project-root>/test-logs/failure-screenshots/
  *
  * Each Page Object (LoginPage, HomePage, etc.) creates its own instance of this class
  * so that logs are separated per test and per page.
  */
 export class AdvancedActionsHelper {
     readonly page: Page;
+    private readonly logger: Log4jsLogger;
     private stepCounter: number = 0;       // Auto-incrementing counter for sequential step labels
-    private logFilePath: string;            // Absolute path to this test run's log file
     private screenshotDir: string;          // Directory where failure screenshots are stored
 
     /**
-     * Creates a new AdvancedActionsHelper and initializes the log file.
+     * Creates a new AdvancedActionsHelper and initializes logging.
      * @param page - Playwright Page instance to perform actions on
-     * @param testName - Used to generate a unique, human-readable log file name
+     * @param testName - Used to label log output for this helper instance
      */
     constructor(page: Page, testName?: string) {
         this.page = page;
-
-        // Generate a timestamp-based file name, sanitizing special characters
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const safeName = testName?.replace(/[^a-z0-9]/gi, '_') || 'test';
-        this.logFilePath = path.join(process.cwd(), 'test-logs', `${safeName}_${timestamp}.log`);
+        this.logger = Logger.getLogger(`Actions-${testName || "default"}`);
 
         // Configure screenshot output directory
         this.screenshotDir = path.join(process.cwd(), 'test-logs', 'failure-screenshots');
-
-        // Ensure both directories exist before writing
-        this.ensureDirectoryExists(path.dirname(this.logFilePath));
         this.ensureDirectoryExists(this.screenshotDir);
 
-        // Write the log file header
-        this.writeToLogFile(`=== Test Started: ${safeName} ===\n`);
-        this.writeToLogFile(`Timestamp: ${new Date().toISOString()}\n\n`);
+        this.logger.info(`=== Actions Helper Started: ${testName || "default"} ===`);
     }
 
     /** Creates a directory (and parents) if it does not already exist */
@@ -55,23 +45,6 @@ export class AdvancedActionsHelper {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-    }
-
-    /** Appends a message to the test's log file (synchronous I/O) */
-    private writeToLogFile(message: string) {
-        fs.appendFileSync(this.logFilePath, message);
-    }
-
-    /** Logs a timestamped message to both console and the log file, tagged with its severity level */
-    private async log(level: 'ACTION' | 'SUCCESS' | 'FAILED' | 'DATA' | 'ASSERTION', message: string) {
-        const timestamp = new Date().toISOString();
-        const logMessage = `[${timestamp}] [${level}] ${message}`;
-
-        // Console log
-        console.log(logMessage);
-
-        // File log
-        this.writeToLogFile(logMessage + '\n');
     }
 
     /**
@@ -89,10 +62,10 @@ export class AdvancedActionsHelper {
                 path: screenshotPath,
                 fullPage: true
             });
-            await this.log('FAILED', `Screenshot saved: ${screenshotPath}`);
+            this.logger.error(`Screenshot saved: ${screenshotPath}`);
             return screenshotPath;
         } catch (error) {
-            await this.log('FAILED', `Could not capture screenshot: ${error}`);
+            this.logger.error(`Could not capture screenshot: ${error}`);
             return '';
         }
     }
@@ -109,16 +82,16 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || `Navigate to ${url}`;
 
-        await this.log('ACTION', `${step}: ${logMessage}`);
+        this.logger.info(`${step}: ${logMessage}`);
         const startTime = Date.now();
 
         try {
             await this.page.goto(url, { waitUntil: 'domcontentloaded' });
             const duration = Date.now() - startTime;
-            await this.log('SUCCESS', `${step}: ${logMessage} (${duration}ms)`);
+            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
         } catch (error) {
             const duration = Date.now() - startTime;
-            await this.log('FAILED', `${step}: ${logMessage} (${duration}ms) - Error: ${error}`);
+            this.logger.fatal(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
             await this.captureFailureScreenshot(logMessage);
             throw error;
         }
@@ -136,21 +109,21 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Click element';
 
-        await this.log('ACTION', `${step}: ${logMessage}`);
+        this.logger.info(`${step}: ${logMessage}`);
         const startTime = Date.now();
 
         try {
             // Log element state before clicking
             const isVisible = await locator.isVisible();
             const isEnabled = await locator.isEnabled();
-            await this.log('DATA', `Element state - Visible: ${isVisible}, Enabled: ${isEnabled}`);
+            this.logger.debug(`Element state - Visible: ${isVisible}, Enabled: ${isEnabled}`);
 
             await locator.click();
             const duration = Date.now() - startTime;
-            await this.log('SUCCESS', `${step}: ${logMessage} (${duration}ms)`);
+            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
         } catch (error) {
             const duration = Date.now() - startTime;
-            await this.log('FAILED', `${step}: ${logMessage} (${duration}ms) - Error: ${error}`);
+            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
             await this.captureFailureScreenshot(logMessage);
             throw error;
         }
@@ -170,18 +143,18 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Fill input field';
 
-        await this.log('ACTION', `${step}: ${logMessage}`);
+        this.logger.info(`${step}: ${logMessage}`);
         const displayValue = isSensitive ? '***MASKED***' : `"${value}"`;
-        await this.log('DATA', `Input value: ${displayValue}`);
+        this.logger.debug(`Input value: ${displayValue}`);
         const startTime = Date.now();
 
         try {
             await locator.fill(value);
             const duration = Date.now() - startTime;
-            await this.log('SUCCESS', `${step}: ${logMessage} (${duration}ms)`);
+            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
         } catch (error) {
             const duration = Date.now() - startTime;
-            await this.log('FAILED', `${step}: ${logMessage} (${duration}ms) - Error: ${error}`);
+            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
             await this.captureFailureScreenshot(logMessage);
             throw error;
         }
@@ -199,16 +172,16 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Wait for element to be visible';
 
-        await this.log('ACTION', `${step}: ${logMessage} (timeout: ${timeout}ms)`);
+        this.logger.info(`${step}: ${logMessage} (timeout: ${timeout}ms)`);
         const startTime = Date.now();
 
         try {
             await locator.waitFor({ state: 'visible', timeout });
             const duration = Date.now() - startTime;
-            await this.log('SUCCESS', `${step}: ${logMessage} (${duration}ms)`);
+            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
         } catch (error) {
             const duration = Date.now() - startTime;
-            await this.log('FAILED', `${step}: ${logMessage} (${duration}ms) - Timeout or Error: ${error}`);
+            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Timeout or Error: ${error}`);
             await this.captureFailureScreenshot(logMessage);
             throw error;
         }
@@ -226,18 +199,18 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Get text content';
 
-        await this.log('ACTION', `${step}: ${logMessage}`);
+        this.logger.info(`${step}: ${logMessage}`);
         const startTime = Date.now();
 
         try {
             const text = await locator.textContent() || '';
             const duration = Date.now() - startTime;
-            await this.log('SUCCESS', `${step}: ${logMessage} (${duration}ms)`);
-            await this.log('DATA', `Retrieved text: "${text}"`);
+            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
+            this.logger.debug(`Retrieved text: "${text}"`);
             return text;
         } catch (error) {
             const duration = Date.now() - startTime;
-            await this.log('FAILED', `${step}: ${logMessage} (${duration}ms) - Error: ${error}`);
+            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
             await this.captureFailureScreenshot(logMessage);
             throw error;
         }
@@ -254,8 +227,8 @@ export class AdvancedActionsHelper {
     async logAssertion(description: string, expected: any, actual: any, passed: boolean) {
         this.stepCounter++;
         const step = `Step ${this.stepCounter}`;
-        await this.log('ASSERTION', `${step}: ${description}`);
-        await this.log('DATA', `Expected: ${JSON.stringify(expected)}, Actual: ${JSON.stringify(actual)}, Passed: ${passed}`);
+        this.logger.info(`${step}: ASSERTION - ${description}`);
+        this.logger.debug(`Expected: ${JSON.stringify(expected)}, Actual: ${JSON.stringify(actual)}, Passed: ${passed}`);
 
         if (!passed) {
             await this.captureFailureScreenshot(description);
@@ -264,12 +237,11 @@ export class AdvancedActionsHelper {
 
     /**
      * Generates and returns a summary of all steps executed in this helper.
-     * Also appends the summary to the log file for a complete test record.
-     * @returns A multi-line string with step count and log file path
+     * @returns A multi-line string with step count
      */
     getSummary(): string {
-        const summary = `\n=== Test Summary ===\nTotal Steps: ${this.stepCounter}\nLog File: ${this.logFilePath}\n`;
-        this.writeToLogFile(summary);
+        const summary = `\n=== Test Summary ===\nTotal Steps: ${this.stepCounter}\n`;
+        this.logger.info(summary);
         return summary;
     }
 }

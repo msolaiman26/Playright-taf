@@ -13,7 +13,9 @@ import { POManager } from "../pages/po-manager";
 import * as fs from "fs";
 import { exec } from "child_process";
 import path from "path";
+import { Logger } from './Logger';
 
+const logger = Logger.getLogger('ui-helper');
 let poManager: POManager;
 
 /**
@@ -83,16 +85,16 @@ async function checkFEPerformance(testInfo: TestInfo) {
         
         return new Promise<void>((resolve, reject) => {
             exec(command, (error, stdout, stderr) => {
-                console.log(`Checking frontend performance for the website using lighthouse...`);
+                logger.info(`Checking frontend performance for the website using lighthouse...`);
                 if (error) {
-                    console.error(`❌ Error: ${error.message}`);
+                    logger.error(`Error: ${error.message}`);
                     reject(error);
                     // return;
                 }
                 // if (stderr) {
-                //     console.error(`⚠️ STDERR: ${stderr}`);
+                //     logger.warn(`STDERR: ${stderr}`);
                 // }
-                console.log(`✅ Lighthouse Output:\n${stdout}`);
+                logger.info(`Lighthouse Output:\n${stdout}`);
                 attachLHReport(reportPath, testInfo);
                 resolve();
             });

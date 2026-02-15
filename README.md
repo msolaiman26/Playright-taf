@@ -25,6 +25,7 @@ A comprehensive, enterprise-grade test automation framework built with **Playwri
   - [Advanced Actions Helper](#advanced-actions-helper)
   - [Advanced Assertions Helper](#advanced-assertions-helper)
   - [Soft vs Hard Assertions](#soft-vs-hard-assertions)
+  - [Logging with log4js](#logging-with-log4js)
   - [Network Interception & Mocking](#network-interception--mocking)
 - [Environment Configuration](#environment-configuration)
 - [Reporting](#reporting)
@@ -52,22 +53,25 @@ Playwright-taf/
 │   │   └── users-endpoints.ts        #   GET/POST functions for JSONPlaceholder API
 │   │
 │   ├── fixtures/                     # Custom Playwright test fixtures
-│   │   ├── pom-eager-fixture.ts      #   Fixture with POMEager + helpers
-│   │   ├── pom-lazy-fixture.ts       #   Fixture with POMLazy + helpers
+│   │   ├── pom-eager-fixture.ts      #   Fixture with POMEager + helpers + log4js
+│   │   ├── pom-lazy-fixture.ts       #   Fixture with POMLazy + helpers + log4js
+│   │   ├── test-fixtures.ts          #   Fixture with logger + POMLazy + helpers
 │   │   └── test-helpers-fixture.ts   #   Fixture with helpers only (no POM)
 │   │
 │   ├── mocks/                        # Mock response data
 │   │   └── response-interception.json #  Mock user data for API mocking tests
 │   │
 │   ├── pages/                        # Page Object Models
-│   │   ├── login-page.ts             #   Login page locators, actions, assertions
-│   │   ├── home-page.ts              #   Dashboard page (post-login)
+│   │   ├── login-page.ts             #   Login page with log4js logging
+│   │   ├── login-page-log4js.ts      #   Login page (log4js reference impl)
+│   │   ├── home-page.ts              #   Dashboard page with log4js logging
 │   │   ├── pom-eager.ts              #   Page Object Manager — Eager initialization
 │   │   └── pom-lazy.ts               #   Page Object Manager — Lazy initialization
 │   │
 │   └── utils/                        # Utility classes and helpers
-│       ├── advanced-actions-helper.ts #   Logged page actions (goto, click, fill, etc.)
-│       ├── advanced-assertions-helper.ts # Logged assertions with soft/hard modes
+│       ├── Logger.ts                 #   log4js wrapper (console + file + HTML report)
+│       ├── advanced-actions-helper.ts #   Logged page actions via log4js
+│       ├── advanced-assertions-helper.ts # Logged assertions via log4js
 │       ├── ui-helper.ts              #   Visual regression and LHCI performance checks
 │       ├── lighthouse-helper.ts      #   Lighthouse performance auditing
 │       ├── urls.ts                   #   Centralized URL config per environment
@@ -86,14 +90,21 @@ Playwright-taf/
 │   │       ├── login-with-fixture.spec.ts          # Login tests (login fixture)
 │   │       ├── login-with-POManagerEager.spec.ts    # Login tests (POMEager)
 │   │       ├── login-with-POManagerLazy.spec.ts     # Login tests (POMLazy)
-│   │       └── login-test-with-helpers.spec.ts      # Best practice demo (11 tests)
+│   │       ├── login-test-with-helpers.spec.ts      # Best practice demo
+│   │       ├── login-helpers-log4js.spec.ts         # Log4js logging demo tests
+│   │       └── login-with-DD.spec.ts                # Data-driven login tests
 │   │
 │   └── api/                          # API tests (no browser needed)
 │       └── specs/
 │           ├── users-test.spec.ts                   # REST API CRUD tests
 │           └── network-interception.spec.ts         # Network mocking & interception
 │
-├── test-logs/                        # Generated: action and assertion log files
+├── docs/                             # Documentation
+│   └── log4js-logging-guide.md       #   Detailed log4js integration guide
+│
+├── test-logs/                        # Generated: log4js log files + HTML report
+│   ├── test-execution.log            #   Rolling daily log file (all categories)
+│   └── test-report.html              #   Interactive HTML log report with filters
 ├── test-results/                     # Generated: Playwright test artifacts
 ├── playwright-report/                # Generated: HTML test report
 ├── allure-results/                   # Generated: Allure report data
@@ -134,6 +145,15 @@ Playwright-taf/
 │  LighthouseHelper        — Performance auditing                     │
 │  UIHelper                — Visual regression testing                │
 │  URLs                    — Environment-based URL resolution          │
+└──────────────────┬──────────────────────────────────────────────────┘
+                   │ logs via
+┌──────────────────▼──────────────────────────────────────────────────┐
+│                   log4js Logging Layer                               │
+│  Logger (src/utils/Logger.ts) — Centralized log4js configuration    │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────────┐    │
+│  │   Console    │  │  File (daily │  │  HTML Report Collector   │    │
+│  │  (colored)   │  │  rotation)   │  │  (filterable dashboard)  │    │
+│  └─────────────┘  └─────────────┘  └──────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -211,13 +231,15 @@ playwright.config.ts is loaded
 #### 2. Fixture Setup (Before Each Test)
 ```
 Test runner calls the pom-eager-fixture:
+  → Creates a log4js logger named after the test
   → Creates POMEager with the test name
     → POMEager constructor (eager) immediately creates:
-      → LoginPage instance (with its own AdvancedActionsHelper + AdvancedAssertionsHelper)
-      → HomePage instance (with its own helpers)
-    → Each helper creates a unique log file in test-logs/
+      → LoginPage instance (with its own log4js logger + AdvancedActionsHelper + AdvancedAssertionsHelper)
+      → HomePage instance (with its own logger + helpers)
+    → Each helper gets a log4js logger (e.g., "Actions-testName", "Assertions-testName")
   → Creates standalone AdvancedActionsHelper (for general actions)
   → Creates standalone AdvancedAssertionsHelper (for general assertions)
+  → Logs "▶ TEST START" via log4js
   → All are passed to the test via `pomEagerHelpers`
 ```
 
@@ -259,8 +281,10 @@ Step 5: Assert profile icon is visible
 
 #### 4. Fixture Teardown (After Each Test)
 ```
-  → Fixture logs "===Test Passed===" or "===Test Failed==="
-  → Log files are finalized in test-logs/
+  → Fixture logs "✅ TEST PASSED" or "❌ TEST FAILED" via log4js
+  → All log entries written to test-logs/test-execution.log (daily rolling)
+  → Colored output written to console
+  → Log entries collected for HTML report generation
   → If test failed: screenshots already captured during failure
   → Playwright captures trace (retain-on-failure) and screenshots
 ```
@@ -399,9 +423,10 @@ Fixtures are Playwright's dependency injection mechanism. This framework provide
 
 | Fixture | What It Provides | Use Case |
 |---------|-----------------|----------|
-| `pom-eager-fixture` | POMEager + actions + assert | Standard UI tests |
-| `pom-lazy-fixture` | POMLazy + actions + assert | Memory-efficient tests |
-| `test-helpers-fixture` | actions + assert only | Tests without POM |
+| `test-fixtures` | logger + POMLazy + actions + assert | Recommended: log4js-first tests |
+| `pom-eager-fixture` | POMEager + actions + assert + log4js lifecycle | Standard UI tests |
+| `pom-lazy-fixture` | POMLazy + actions + assert + log4js lifecycle | Memory-efficient tests |
+| `test-helpers-fixture` | actions + assert + log4js lifecycle | Tests without POM |
 | `login-fixture` | POMEager (pre-navigated) + loginPage + actions + assert | Login-specific tests |
 
 ### Advanced Actions Helper
@@ -409,20 +434,21 @@ Fixtures are Playwright's dependency injection mechanism. This framework provide
 Wraps common Playwright actions (`goto`, `click`, `fill`, `getText`, `waitForVisible`) with:
 
 - **Sequential step numbering** — `Step 1`, `Step 2`, etc.
-- **Dual logging** — Console output + per-test log file
+- **log4js logging** — Console (colored) + daily rolling file + HTML report collector
 - **Performance timing** — Duration of each action in milliseconds
 - **Sensitive data masking** — Passwords logged as `***MASKED***`
 - **Screenshot on failure** — Full-page screenshot captured automatically
 
-Example log output:
-```
-[2025-01-15T10:30:45.123Z] [ACTION] Step 1: Navigate to OrangeHRM login page
-[2025-01-15T10:30:46.456Z] [SUCCESS] Step 1: Navigate to OrangeHRM login page (1333ms)
-[2025-01-15T10:30:46.460Z] [ACTION] Step 2: Enter username
-[2025-01-15T10:30:46.462Z] [DATA] Input value: "Admin"
-[2025-01-15T10:30:46.510Z] [SUCCESS] Step 2: Enter username (50ms)
-[2025-01-15T10:30:46.515Z] [ACTION] Step 3: Enter password
-[2025-01-15T10:30:46.516Z] [DATA] Input value: ***MASKED***
+Example log output (console, colored):
+
+```text
+2025-01-15 10:30:45.123 [INFO] [Actions-valid_login] - Step 1: Navigate to OrangeHRM login page
+2025-01-15 10:30:46.456 [INFO] [Actions-valid_login] - Step 1: Navigate to OrangeHRM login page - SUCCESS (1333ms)
+2025-01-15 10:30:46.460 [INFO] [Actions-valid_login] - Step 2: Enter username
+2025-01-15 10:30:46.462 [DEBUG] [Actions-valid_login] - Input value: "Admin"
+2025-01-15 10:30:46.510 [INFO] [Actions-valid_login] - Step 2: Enter username - SUCCESS (50ms)
+2025-01-15 10:30:46.515 [INFO] [Actions-valid_login] - Step 3: Enter password
+2025-01-15 10:30:46.516 [DEBUG] [Actions-valid_login] - Input value: ***MASKED***
 ```
 
 ### Advanced Assertions Helper
@@ -459,6 +485,44 @@ await assert.assertAllSoftAssertions();
 ```
 
 Soft assertions are ideal for verifying multiple elements on a page without stopping at the first failure.
+
+### Logging with log4js
+
+All logging across the framework is handled by [log4js](https://log4js-node.github.io/log4js-node/) via the centralized `Logger` utility (`src/utils/Logger.ts`). This replaces the previous manual `console.log` + `fs.appendFileSync` approach.
+
+**Three output channels** (configured automatically):
+
+| Channel | Description |
+|---------|-------------|
+| **Console** | Colored, timestamped output with log level and category |
+| **File** | Daily rotating log file (`test-logs/test-execution.log`) with 5 backups |
+| **HTML Report** | Interactive dashboard (`test-logs/test-report.html`) with level/category filtering |
+
+**Log levels** (configurable via `LOG_LEVEL` env variable, default: `debug`):
+
+`TRACE` < `DEBUG` < `INFO` < `WARN` < `ERROR` < `FATAL`
+
+**Quick usage:**
+
+```typescript
+import { Logger } from '../utils/Logger';
+import { Logger as Log4jsLogger } from 'log4js';
+
+// In a class (page object, helper, etc.)
+private readonly logger: Log4jsLogger;
+constructor(testName: string) {
+    this.logger = Logger.getLogger(`MyPage-${testName}`);
+}
+
+// Logging at different levels
+this.logger.info("Navigating to login page");
+this.logger.debug(`Current URL: ${this.page.url()}`);
+this.logger.warn("Element took longer than expected");
+this.logger.error("Login failed");
+this.logger.fatal("Critical: page crashed");
+```
+
+For the full integration guide, see [docs/log4js-logging-guide.md](docs/log4js-logging-guide.md).
 
 ### Network Interception & Mocking
 
@@ -503,7 +567,8 @@ The framework generates multiple report types:
 |----------|----------------|-------------|
 | **HTML Report** | `playwright-report/` | Auto-opens after run, or `npx playwright show-report` |
 | **Allure Report** | `allure-results/` | `npx allure generate allure-results && npx allure open` |
-| **Custom Log Files** | `test-logs/` | Open `.log` files directly — one per test per helper |
+| **log4js Log File** | `test-logs/test-execution.log` | Rolling daily file with all log categories |
+| **log4js HTML Report** | `test-logs/test-report.html` | Interactive dashboard with level/category filtering |
 | **Failure Screenshots** | `test-logs/failure-screenshots/` | Captured automatically on any action/assertion failure |
 | **Traces** | `test-results/` | Open via `npx playwright show-trace <trace-file>` |
 
@@ -531,6 +596,7 @@ The framework generates multiple report types:
 | `@playwright/test` | Testing framework and browser automation |
 | `playwright` | Browser automation engine |
 | `dotenv` | Load environment variables from `.env` |
+| `log4js` | Structured logging (console + file + HTML report) |
 | `playwright-lighthouse` | Lighthouse performance auditing via Playwright |
 
 ### Development / Reporting

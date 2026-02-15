@@ -12,15 +12,18 @@
  */
 import testData from '../../data/test-users';
 import stagingData from '../../data/staging-users';
+import { Logger } from '../Logger';
 
-/** Logs the currently active environment to the console */
+const logger = Logger.getLogger('env-setup');
+
+/** Logs the currently active environment */
 function getEnv(){
     const env = process.env.ENV!;
     if ( env === 'staging'){
-        console.log('Running tests on staging environment');
+        logger.info('Running tests on staging environment');
     }
     else if ( env === 'test'){
-        console.log('Running tests on test environment');
+        logger.info('Running tests on test environment');
     }
 }
 

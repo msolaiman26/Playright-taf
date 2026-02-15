@@ -23,6 +23,9 @@ import * as os from "os";
 import tsData from '../data/test-users';
 import { LoginPage } from "../pages/login-page";
 import { exec } from 'child_process';
+import { Logger } from './Logger';
+
+const logger = Logger.getLogger('lighthouse-helper');
 
 let context; // Persistent browser context — kept alive so Lighthouse can connect via CDP
 
@@ -95,11 +98,11 @@ async function checkFEPerformance(testInfo: TestInfo, pageURL?: string) {
             },
         });
         } catch (error) {
-            console.error(`❌ Error: ${error.message}`);
+            logger.error(`Error: ${error.message}`);
             test.fail();
         }
         await context.close();
-        console.log(`✅ Lighthouse performance check completed for OrangeHRM website.`);
+        logger.info(`Lighthouse performance check completed for OrangeHRM website.`);
         attachLHReport(reportPath, testInfo);
     });   
 }
@@ -133,16 +136,16 @@ async function checkFEPerformanceUsingLHCI(testInfo: TestInfo, portalName: strin
         
         return new Promise<void>((resolve, reject) => {
             exec(command, (error, stdout, stderr) => {
-                console.log(`Checking frontend performance for OrangeHRM website using lighthouse...`);
+                logger.info(`Checking frontend performance for OrangeHRM website using lighthouse...`);
                 if (error) {
-                    console.error(`❌ Error: ${error.message}`);
+                    logger.error(`Error: ${error.message}`);
                     reject(error);
                     // return;
                 }
                 // if (stderr) {
-                //     console.error(`⚠️ STDERR: ${stderr}`);
+                //     logger.warn(`STDERR: ${stderr}`);
                 // }
-                console.log(`✅ Lighthouse Output:\n${stdout}`);
+                logger.info(`Lighthouse Output:\n${stdout}`);
                 attachLHReport(reportPath, testInfo);
                 resolve();
             });

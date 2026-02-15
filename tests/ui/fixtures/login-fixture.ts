@@ -19,6 +19,7 @@ import { POMEager } from '../../../src/pages/pom-eager';
 import { LoginPage } from '../../../src/pages/login-page';
 import { AdvancedActionsHelper } from '../../../src/utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../../../src/utils/advanced-assertions-helper';
+import { Logger } from '../../../src/utils/Logger';
 
 /** Type definition for all fixture values available in login tests */
 type myFixtures = {
@@ -48,14 +49,15 @@ export const test = base.extend<myFixtures>({
         await use(actions);
     },
 
-    /** Provides AdvancedAssertionsHelper and prints assertion stats summary after each test */
+    /** Provides AdvancedAssertionsHelper and logs assertion stats summary after each test */
     assert: async ({ page }, use, testInfo) => {
+        const logger = Logger.getLogger(`Fixture-Login-${testInfo.title.replace(/\s+/g, '_')}`);
         const assert = new AdvancedAssertionsHelper(page, testInfo.title);
         await use(assert);
 
-        // Teardown: print assertion statistics to console for quick visibility
-        console.log('\n===Test Summary===');
+        // Teardown: log assertion statistics
         const assertionStats = assert.getAssertionStats();
-        console.log(`Total Assertions: ${assertionStats.total} (Passed: ${assertionStats.passed}, Failed: ${assertionStats.failed})`);
+        logger.info(`=== Test Summary ===`);
+        logger.info(`Total Assertions: ${assertionStats.total} (Passed: ${assertionStats.passed}, Failed: ${assertionStats.failed})`);
     }
 });

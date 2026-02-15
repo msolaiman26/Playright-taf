@@ -15,7 +15,7 @@ import { Logger } from '../utils/Logger';
  * Usage: Tests should only call public methods (login, navigateToLogin, etc.)
  *        and never interact with locators directly — this preserves encapsulation.
  */
-export class LoginPage {
+export class LoginPage4js {
     readonly page: Page;
     private readonly logger: Log4jsLogger;
     readonly actions: AdvancedActionsHelper;   // Provides logged page actions (goto, click, fill, etc.)
@@ -41,7 +41,7 @@ export class LoginPage {
      */
     constructor(page: Page, testName: string) {
         this.page = page;
-        this.logger = Logger.getLogger(`LoginPage-${testName}`);
+        this.logger = Logger.getLogger(`LoginPage-${testName}`); // Logger specific to this page and test
         // Create separate helper instances so actions and assertions get their own log files
         this.actions = new AdvancedActionsHelper(page, `${testName}-actions`);
         this.assert = new AdvancedAssertionsHelper(page, `${testName}-assertions`);
@@ -76,7 +76,7 @@ export class LoginPage {
      * @param isPasswordSensitive - When true (default), password is masked in logs as "***MASKED***"
      */
     async login(username: string, password: string, isPasswordSensitive: boolean = true) {
-        this.logger.debug("Filling username field");
+       this.logger.debug("Filling username field");
         await this.actions.fill(
             this.usernameInput,
             username,
@@ -92,7 +92,7 @@ export class LoginPage {
             isPasswordSensitive // mask in logs
         );
 
-        this.logger.debug("Clicking login button");
+         this.logger.debug("Clicking login button");
         await this.actions.click(
             this.loginButton,
             'Click login button'
