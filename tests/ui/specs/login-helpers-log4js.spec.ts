@@ -13,30 +13,30 @@ import { LoginPage4js } from '../../../src/pages/login-page-log4js';
  * 5. Fixtures handle initialization and cleanup automatically
  */
 test.describe('✅ Best Practice: POM with Fixture', () => {
-    test.beforeEach(async ({ logger, pomLazy, actions, assert }) => {
+    test.beforeEach(async ({pomLazy}) => {
         // Fixture provides pomLazy, navigate to login page
         await pomLazy.loginPage.navigateToLogin();
     });
 
-    test('Successful login - valid credentials', async ({ logger, pomLazy, actions, assert }) => {
+    test('Successful login - valid credentials', async ({pomLazy}) => {
         // ✅ Clean and readable - reads like a user story
         await pomLazy.loginPage.login('Admin', 'admin123');
         await pomLazy.homePage.assertProfileIcon();
     });
 
-    test('Failed login - invalid username', async ({ logger, pomLazy, actions, assert }) => {
+    test('Failed login - invalid username', async ({ pomLazy}) => {
         // ✅ Page object handles all UI details
         await pomLazy.loginPage.login('InvalidUser', 'wrongpassword');
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - invalid password', async ({ logger, pomLazy, actions, assert }) => {
+    test('Failed login - invalid password', async ({ pomLazy }) => {
         // ✅ Reusable methods across multiple test scenarios
         await pomLazy.loginPage.login('Admin', 'wrongpassword');
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - empty credentials', async ({ logger, pomLazy, actions, assert }) => {
+    test('Failed login - empty credentials', async ({pomLazy}) => {
         // ✅ Method handles edge cases
         await pomLazy.loginPage.login('', '');
         await pomLazy.loginPage.assertInvalidLoginMessage();
@@ -52,26 +52,26 @@ test.describe('✅ Best Practice: POM with Fixture_Optimized', () => {
         await _loginPage.navigateToLogin();
     });
 
-    test('Successful login - valid credentials_Optimized', async ({ logger, pomLazy, actions, assert }) => {
+    test('Successful login - valid credentials_Optimized', async ({ pomLazy }) => {
         // ✅ Clean and readable - reads like a user story
         await _loginPage.login('Admin', 'admin123');
         let _homePage = pomLazy.homePage; // Accessing homePage for the first time - triggers lazy initialization
         await _homePage.assertProfileIcon();
     });
 
-    test('Failed login - invalid username_Optimized', async ({ logger, pomLazy, actions, assert }) => {
+    test('Failed login - invalid username_Optimized', async () => {
         // ✅ Page object handles all UI details
         await _loginPage.login('InvalidUser', 'wrongpassword');
         await _loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - invalid password_Optimized', async ({ logger, pomLazy, actions, assert }) => {
+    test('Failed login - invalid password_Optimized', async () => {
         // ✅ Reusable methods across multiple test scenarios
         await _loginPage.login('Admin', 'wrongpassword');
         await _loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - empty credentials_Optimized', async ({ logger, pomLazy, actions, assert }) => {
+    test('Failed login - empty credentials_Optimized', async () => {
         // ✅ Method handles edge cases
         await _loginPage.login('', '');
         await _loginPage.assertInvalidLoginMessage();
@@ -83,17 +83,17 @@ test.describe('✅ Best Practice: POM with Fixture_Optimized', () => {
  * Demonstrates working with multiple pages using fixture
  */
 test.describe('✅ Best Practice: Multi-Page Workflows', () => {
-    test.beforeEach(async ({ logger, pomLazy, actions, assert }) => {
+    test.beforeEach(async ({ pomLazy }) => {
         await pomLazy.loginPage.navigateToLogin();
     });
 
-    test('Login and verify home page', async ({ logger, pomLazy, actions, assert }) => {
+    test('Login and verify home page', async ({ pomLazy}) => {
         // ✅ Seamless navigation between page objects
         await pomLazy.loginPage.login('Admin', 'admin123');
         await pomLazy.homePage.assertProfileIcon();
     });
 
-    test('Verify login page elements', async ({ logger, pomLazy, actions, assert }) => {
+    test('Verify login page elements', async ({ pomLazy }) => {
         // ✅ Page objects handle internal validation
         await pomLazy.loginPage.login('Admin', 'admin123');
         await pomLazy.homePage.assertProfileIcon();

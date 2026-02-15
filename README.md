@@ -27,6 +27,7 @@ A comprehensive, enterprise-grade test automation framework built with **Playwri
   - [Soft vs Hard Assertions](#soft-vs-hard-assertions)
   - [Logging with log4js](#logging-with-log4js)
   - [Network Interception & Mocking](#network-interception--mocking)
+- [Design Patterns](#design-patterns)
 - [Environment Configuration](#environment-configuration)
 - [Reporting](#reporting)
 - [NPM Scripts Reference](#npm-scripts-reference)
@@ -43,6 +44,9 @@ Playwright-taf/
 ├── .env                              # Environment variables (ENV, RP_API_KEY)
 │
 ├── src/                              # Source code (shared across all tests)
+│   ├── builders/                     # Builder pattern implementations
+│   │   └── user-builder.ts           #   Fluent API for creating test users
+│   │
 │   ├── data/                         # Test data files
 │   │   ├── test-users.ts             #   Default credentials (test environment)
 │   │   ├── staging-users.ts          #   Staging credentials
@@ -51,6 +55,10 @@ Playwright-taf/
 │   │
 │   ├── endpoints/                    # API endpoint definitions
 │   │   └── users-endpoints.ts        #   GET/POST functions for JSONPlaceholder API
+│   │
+│   ├── factories/                    # Factory pattern implementations
+│   │   ├── page-factory.ts           #   Centralized page object creation
+│   │   └── helper-factory.ts         #   Centralized helper creation
 │   │
 │   ├── fixtures/                     # Custom Playwright test fixtures
 │   │   ├── pom-eager-fixture.ts      #   Fixture with POMEager + helpers + log4js
@@ -98,6 +106,10 @@ Playwright-taf/
 │       └── specs/
 │           ├── users-test.spec.ts                   # REST API CRUD tests
 │           └── network-interception.spec.ts         # Network mocking & interception
+│
+├── docs/                             # Documentation
+│   ├── log4js-logging-guide.md       # Comprehensive log4js usage guide
+│   └── design-patterns-analysis.md   # Design patterns analysis and recommendations
 │
 ├── docs/                             # Documentation
 │   └── log4js-logging-guide.md       #   Detailed log4js integration guide
@@ -535,6 +547,119 @@ Playwright provides four network manipulation strategies demonstrated in this fr
 | **Modify** | `route.fetch()` + `route.fulfill()` | Alter real API response before returning |
 | **Redirect** | `route.continue({ url })` | Send requests to a different endpoint |
 | **Abort** | `route.abort()` | Block resources (images, CSS, etc.) |
+
+---
+
+## Design Patterns
+
+This framework implements enterprise-grade design patterns for maintainability, scalability, and code quality. **Phase 1 patterns** (Builder + Factory) are now fully implemented.
+
+### 🏗️ Builder Pattern
+
+**Purpose:** Fluent API for creating complex test data objects
+
+**Implementation:** `src/builders/user-builder.ts`
+
+**Benefits:**
+
+- ✅ Readable, expressive test data creation
+- ✅ Preset configurations (asValidAdmin, asInvalidPassword, etc.)
+- ✅ Build-time validation
+- ✅ Default values for optional fields
+
+**Example Usage:**
+
+```typescript
+import { UserBuilder } from '../src/builders/user-builder';
+
+// Using preset configurations
+const validUser = new UserBuilder().asValidAdmin().build();
+const invalidUser = new UserBuilder().asInvalidPassword().build();
+
+// Custom configuration with fluent API
+const customUser = new UserBuilder()
+    .withUsername('testuser')
+    .withPassword('testpass')
+    .withDescription('Custom test scenario')
+    .build();
+
+// Generate multiple invalid users for data-driven testing
+const invalidUsers = UserBuilder.buildInvalidUsers();
+invalidUsers.forEach(user => {
+    test(`Login fails for ${user.testType}`, async () => {
+        await loginPage.login(user.username, user.password);
+        await loginPage.assertInvalidLoginMessage();
+    });
+});
+```
+
+**See also:** `tests/ui/specs/login-with-builder.spec.ts` for complete examples
+
+### 🏭 Factory Pattern
+
+**Purpose:** Centralize object creation (page objects and helpers)
+
+**Implementation:**
+- `src/factories/page-factory.ts` - Page object creation
+- `src/factories/helper-factory.ts` - Helper creation
+
+**Benefits:**
+
+- ✅ Single source of truth for instantiation
+- ✅ Consistent constructor parameters
+- ✅ Reduces duplication in fixtures
+- ✅ Easy to add pre/post-creation hooks
+
+**Example Usage:**
+
+```typescript
+import { PageFactory } from '../src/factories/page-factory';
+import { HelperFactory } from '../src/factories/helper-factory';
+
+// Create individual page objects
+const loginPage = PageFactory.createLoginPage(page, 'My Test');
+const homePage = PageFactory.createHomePage(page, 'My Test');
+
+// Create all pages at once
+const { loginPage, homePage } = PageFactory.createAllPages(page, 'My Test');
+
+// Create helpers
+const { actions, assert } = HelperFactory.createHelpers(page, 'My Test');
+
+// Generic factory for custom pages
+const customPage = PageFactory.createPage(CustomPage, page, 'My Test');
+```
+
+**Integrated in Fixtures:**
+
+The `pom-eager-fixture.ts` now uses HelperFactory:
+
+```typescript
+const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
+```
+
+### 📚 More Patterns
+
+For a comprehensive analysis of all **10 currently implemented patterns** and **8 recommended patterns**, see [docs/design-patterns-analysis.md](docs/design-patterns-analysis.md).
+
+**Currently Implemented:**
+
+1. ✅ Page Object Model (POM)
+2. ✅ Manager Pattern (Eager/Lazy)
+3. ✅ Fixture Pattern
+4. ✅ Helper/Wrapper Pattern
+5. ✅ Centralized Logging
+6. ✅ Endpoint Abstraction
+7. ✅ Data-Driven Testing
+8. ✅ Network Interception
+9. ✅ **Builder Pattern** (Phase 1 - NEW)
+10. ✅ **Factory Pattern** (Phase 1 - NEW)
+
+**Recommended Next:**
+
+- 🎯 Repository Pattern (Phase 2) - Centralized data management
+- 🎯 Strategy Pattern (Phase 3) - Browser-specific behaviors
+- 🎯 Decorator Pattern (Phase 3) - Flexible action enhancement
 
 ---
 

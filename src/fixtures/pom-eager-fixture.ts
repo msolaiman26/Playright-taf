@@ -3,6 +3,7 @@ import { POMEager } from '../pages/pom-eager';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
 import { Logger } from '../utils/Logger';
+import { HelperFactory } from '../factories/helper-factory';
 
 /**
  * Type definition bundling the POMEager page object manager with
@@ -36,10 +37,9 @@ export const test = base.extend<{ pomEagerHelpers: POMEagerHelpers }>({
     pomEagerHelpers: async ({ page }, use, testInfo) => {
         const logger = Logger.getLogger(`Fixture-POMEager-${testInfo.title.replace(/\s+/g, '_')}`);
 
-        // Setup: create all helpers eagerly (before test body runs)
+        // Setup: create all helpers eagerly using Factory pattern (before test body runs)
         const pomEager = new POMEager(page, testInfo.title);
-        const actions = new AdvancedActionsHelper(page, testInfo.title);
-        const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+        const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
 
         logger.info(`▶ TEST START: "${testInfo.title}"`);
 

@@ -9,10 +9,11 @@
  *   4. Request Redirection  — Intercept a request and redirect it to a different URL
  *   5. Request Abort        — Block specific resource types (e.g., images) from loading
  *
- * These tests use the POMEager fixture for UI interactions and the
- * AdvancedActionsHelper / AdvancedAssertionsHelper for logged actions and assertions.
+ * These tests use the test-helpers-fixture for lightweight helper access.
+ * For test 1 (which requires login), LoginPage is manually instantiated.
  */
-import { test } from '../../../src/fixtures/pom-eager-fixture';
+import { test } from '../../../src/fixtures/test-helpers-fixture';
+import { LoginPage } from '../../../src/pages/login-page';
 import tsData from '../../../src/data/test-users';
 import mockedResponse from '../../../src/mocks/response-interception.json'
 import { Logger } from '../../../src/utils/Logger';
@@ -32,11 +33,13 @@ test.describe('Network interception', ()=> {
      *   5. Use that empNumber to send a DELETE request via the Playwright request context
      *   6. Log both the captured and deletion response bodies
      */
-    test('intercept browser api response', async ({ page, pomEagerHelpers, request }) => {
-        const { pomEager, actions } = pomEagerHelpers;
+    test('intercept browser api response', async ({ page, testHelpers, request }) => {
+        const { actions } = testHelpers;
+        // Manually create LoginPage for this test (only test that needs login)
+        const loginPage = new LoginPage(page, 'intercept browser api response');
         logger.info('Logging in to OrangeHRM to intercept browser API response');
-        await pomEager.getLoginPage().navigateToLogin();
-        await pomEager.getLoginPage().login(tsData.username, tsData.password);
+        await loginPage.navigateToLogin();
+        await loginPage.login(tsData.username, tsData.password);
         await actions.click(page.getByText("PIM"), 'Click PIM menu');
 
         // Wait for the employees API response triggered by clicking PIM
@@ -72,8 +75,8 @@ test.describe('Network interception', ()=> {
      *   3. Navigate to a page that calls this API and triggers a UI update
      *   4. Verify the UI displays the mocked data ("Playwright User")
      */
-    test('Mocking1: mock api response', async ({ page, pomEagerHelpers }) => {
-        const { actions, assert } = pomEagerHelpers;
+    test('Mocking1: mock api response', async ({ page, testHelpers }) => {
+        const { actions, assert } = testHelpers;
 
         // Intercept the randomuser.me API and return our mock data instead
         logger.info('Setting up route interception for https://api.randomuser.me/?nat=us');
@@ -101,8 +104,8 @@ test.describe('Network interception', ()=> {
      *   4. Return the modified response to the browser
      *   5. Verify the UI displays the modified name
      */
-    test('Mocking2: mock api response - another way', async ({ page, pomEagerHelpers }) => {
-        const { actions, assert } = pomEagerHelpers;
+    test('Mocking2: mock api response - another way', async ({ page, testHelpers }) => {
+        const { actions, assert } = testHelpers;
 
         // Intercept, fetch the real response, modify it, then return the modified version
         logger.info('Setting up route interception for response modification on randomuser.me');
@@ -135,8 +138,8 @@ test.describe('Network interception', ()=> {
      *   3. Type "Hello" in the Wikipedia search box on the test page
      *   4. Verify that "Udemy" results appear (because the request was redirected)
      */
-    test('Mocking3 - intercept api request', async ({page, pomEagerHelpers}) => {
-        const { actions, assert } = pomEagerHelpers;
+    test('Mocking3 - intercept api request', async ({page, testHelpers}) => {
+        const { actions, assert } = testHelpers;
 
         // Redirect all Wikipedia API calls to always search for "Udemy"
         logger.info('Setting up route redirection for Wikipedia API — redirecting all searches to "Udemy"');
@@ -162,8 +165,8 @@ test.describe('Network interception', ()=> {
      *   3. This technique is useful for testing page behavior without images
      *      or for speeding up tests by blocking unnecessary resources
      */
-    test('Abort the request', async ({page, pomEagerHelpers}) => {
-        const { actions } = pomEagerHelpers;
+    test('Abort the request', async ({page, testHelpers}) => {
+        const { actions } = testHelpers;
 
         // Block all image requests matching .png, .jpg, or .jpeg
         logger.info('Setting up route to abort all image requests (*.png, *.jpg, *.jpeg)');

@@ -1,8 +1,9 @@
 import { Page, Locator } from '@playwright/test';
-import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
+import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';  // Type-only import for TypeScript
+import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';  // Type-only import for TypeScript
 import { Logger as Log4jsLogger } from 'log4js';
 import { Logger } from '../utils/Logger';
+import { HelperFactory } from '../factories/helper-factory';  // Runtime import for instance creation
 
 /**
  * Login Page Object Model (POM) for the OrangeHRM login page.
@@ -42,9 +43,10 @@ export class LoginPage {
     constructor(page: Page, testName: string) {
         this.page = page;
         this.logger = Logger.getLogger(`LoginPage-${testName}`);
-        // Create separate helper instances so actions and assertions get their own log files
-        this.actions = new AdvancedActionsHelper(page, `${testName}-actions`);
-        this.assert = new AdvancedAssertionsHelper(page, `${testName}-assertions`);
+        // Use HelperFactory for consistent helper creation
+        const helpers = HelperFactory.createHelpers(page, testName);
+        this.actions = helpers.actions;
+        this.assert = helpers.assert;
 
         // Initialize locators using CSS selectors and XPath
         this.usernameInput = page.locator('input[name="username"]');

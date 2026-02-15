@@ -1,4 +1,4 @@
-import { test } from '../../../src/fixtures/pom-eager-fixture';
+import { test } from '../../../src/fixtures/pom-lazy-fixture';
 import jsonData from '../../../src/data/test-users.json'
 import tsData from '../../../src/data/test-users';
 import invalidData from '../../../src/data/invalid-test-users'
@@ -28,19 +28,19 @@ test.afterAll('This actions run after all tests',async () =>{
 })
 //====================Tests======================
 test.describe('Login test', ()=> {
-    test('valid login', async ({ pomEagerHelpers }) => {
-        const { pomEager } = pomEagerHelpers;
-        await pomEager.getLoginPage().navigateToLogin();
-        await pomEager.getLoginPage().login(tsData.username, tsData.password);
-        await pomEager.getHomePage().assertProfileIcon();
+    test('valid login', async ({ pomLazyHelpers }) => {
+        const { pomLazy } = pomLazyHelpers;
+        await pomLazy.loginPage.navigateToLogin();
+        await pomLazy.loginPage.login(tsData.username, tsData.password);
+        await pomLazy.homePage.assertProfileIcon();
     });
 
 invalidData.forEach(({username, password, testType}) => {
-    test(`invalid login for ${testType}`, async ({ pomEagerHelpers }) => {
-        const { pomEager } = pomEagerHelpers;
-        await pomEager.getLoginPage().navigateToLogin();
-        await pomEager.getLoginPage().login(username, password);
-        await pomEager.getLoginPage().assertInvalidLoginMessage();
+    test(`invalid login for ${testType}`, async ({ pomLazyHelpers }) => {
+        const { pomLazy } = pomLazyHelpers;
+        await pomLazy.loginPage.navigateToLogin();
+        await pomLazy.loginPage.login(username, password);
+        await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 });
 });

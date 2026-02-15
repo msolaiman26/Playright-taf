@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
 import { Logger } from '../utils/Logger';
+import { HelperFactory } from '../factories/helper-factory';
 
 /**
  * Type definition for standalone test helpers (no page object manager).
@@ -31,9 +32,8 @@ export const test = base.extend<{ testHelpers: TestHelpers }>({
     testHelpers: async ({ page }, use, testInfo) => {
         const logger = Logger.getLogger(`Fixture-Helpers-${testInfo.title.replace(/\s+/g, '_')}`);
 
-        // Create helpers with the test name so each test gets unique log entries
-        const actions = new AdvancedActionsHelper(page, testInfo.title);
-        const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+        // Create helpers using Factory pattern - each test gets unique log entries
+        const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
 
         logger.info(`▶ TEST START: "${testInfo.title}"`);
 

@@ -1,8 +1,9 @@
 import { type Locator, type Page } from "@playwright/test";
-import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
+import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';  // Type-only import for TypeScript
+import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';  // Type-only import for TypeScript
 import { Logger as Log4jsLogger } from 'log4js';
 import { Logger } from '../utils/Logger';
+import { HelperFactory } from '../factories/helper-factory';  // Runtime import for instance creation
 
 /**
  * Home Page (Dashboard) Page Object Model.
@@ -27,8 +28,10 @@ export class HomePage{
     constructor(page: Page, testName?: string) {
         this.page = page;
         this.logger = Logger.getLogger(`HomePage-${testName || 'HomePage'}`);
-        this.actions = new AdvancedActionsHelper(page, testName || 'HomePage');
-        this.assert = new AdvancedAssertionsHelper(page, testName || 'HomePage');
+        // Use HelperFactory for consistent helper creation
+        const helpers = HelperFactory.createHelpers(page, testName || 'HomePage');
+        this.actions = helpers.actions;
+        this.assert = helpers.assert;
         this.profile_icn = page.locator("//img[@class='oxd-userdropdown-img']");
     }
 

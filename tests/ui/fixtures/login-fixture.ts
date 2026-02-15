@@ -20,6 +20,7 @@ import { LoginPage } from '../../../src/pages/login-page';
 import { AdvancedActionsHelper } from '../../../src/utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../../../src/utils/advanced-assertions-helper';
 import { Logger } from '../../../src/utils/Logger';
+import { HelperFactory } from '../../../src/factories/helper-factory';
 
 /** Type definition for all fixture values available in login tests */
 type myFixtures = {
@@ -43,16 +44,16 @@ export const test = base.extend<myFixtures>({
         await use(loginPage);
     },
 
-    /** Provides a standalone AdvancedActionsHelper for logged page interactions */
+    /** Provides a standalone AdvancedActionsHelper for logged page interactions using HelperFactory */
     actions: async ({ page }, use, testInfo) => {
-        const actions = new AdvancedActionsHelper(page, testInfo.title);
+        const { actions } = HelperFactory.createHelpers(page, testInfo.title);
         await use(actions);
     },
 
-    /** Provides AdvancedAssertionsHelper and logs assertion stats summary after each test */
+    /** Provides AdvancedAssertionsHelper and logs assertion stats summary after each test using HelperFactory */
     assert: async ({ page }, use, testInfo) => {
         const logger = Logger.getLogger(`Fixture-Login-${testInfo.title.replace(/\s+/g, '_')}`);
-        const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+        const { assert } = HelperFactory.createHelpers(page, testInfo.title);
         await use(assert);
 
         // Teardown: log assertion statistics

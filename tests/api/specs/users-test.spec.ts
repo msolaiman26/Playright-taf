@@ -8,8 +8,10 @@
  * Tagged with @api so they can be run separately via: `npm run api`
  *
  * Target API: https://jsonplaceholder.typicode.com (configured as baseURL)
+ *
+ * Uses test-helpers-fixture for automatic test lifecycle logging.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../../src/fixtures/test-helpers-fixture';
 import usersRequest from '../../../src/endpoints/users-endpoints';
 import { Logger } from '../../../src/utils/Logger';
 
@@ -20,20 +22,7 @@ let response;
 let jsonResponse;
 
 test.describe('Users API test @api',() =>{
-
-    test.beforeEach(async ({}, testInfo) => {
-        logger.info(`▶ TEST START: ${testInfo.title}`);
-    });
-
-    test.afterEach(async ({}, testInfo) => {
-        if (testInfo.status === 'passed') {
-            logger.info(`✅ TEST PASSED: ${testInfo.title}`);
-        } else if (testInfo.status === 'failed') {
-            logger.error(`❌ TEST FAILED: ${testInfo.title}`);
-        } else if (testInfo.status === 'skipped') {
-            logger.warn(`⏭ TEST SKIPPED: ${testInfo.title}`);
-        }
-    });
+    // Test lifecycle logging is now handled automatically by test-helpers-fixture
 
     /**
      * GET /posts — Verifies that fetching all posts returns:

@@ -4,6 +4,7 @@ import { Logger as Log4jsLogger } from "log4js";
 import { AdvancedAssertionsHelper } from "../utils/advanced-assertions-helper";
 import { AdvancedActionsHelper } from "../utils/advanced-actions-helper";
 import { POMLazy } from "../pages/pom-lazy";
+import { HelperFactory } from "../factories/helper-factory";
 
 /**
  * Extended Playwright test fixture that provides a `logger` instance
@@ -59,10 +60,12 @@ export const test = base.extend<LoggerFixture>({
     await use(new POMLazy(page, testInfo.title));
   },
   actions: async ({ page }, use, testInfo) => {
-    await use(new AdvancedActionsHelper(page, testInfo.title));
+    const { actions } = HelperFactory.createHelpers(page, testInfo.title);
+    await use(actions);
   },
   assert: async ({ page }, use, testInfo) => {
-    await use(new AdvancedAssertionsHelper(page, testInfo.title));
+    const { assert } = HelperFactory.createHelpers(page, testInfo.title);
+    await use(assert);
   },
 });
 

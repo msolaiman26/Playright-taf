@@ -3,6 +3,7 @@ import { POMLazy } from '../pages/pom-lazy';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
 import { Logger } from '../utils/Logger';
+import { HelperFactory } from '../factories/helper-factory';
 
 /**
  * Type definition bundling the POMLazy page object manager with
@@ -36,10 +37,9 @@ export const test = base.extend<{ pomLazyHelpers: POMLazyHelpers }>({
     pomLazyHelpers: async ({ page }, use, testInfo) => {
         const logger = Logger.getLogger(`Fixture-POMLazy-${testInfo.title.replace(/\s+/g, '_')}`);
 
-        // Setup: create the lazy POM and helpers (page objects not yet created)
+        // Setup: create the lazy POM and helpers using Factory pattern (page objects not yet created)
         const pomLazy = new POMLazy(page, testInfo.title);
-        const actions = new AdvancedActionsHelper(page, testInfo.title);
-        const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+        const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
 
         logger.info(`▶ TEST START: "${testInfo.title}"`);
 
