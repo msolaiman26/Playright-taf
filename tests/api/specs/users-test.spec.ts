@@ -21,7 +21,7 @@ import { test } from '../../../src/fixtures/test-helpers-fixture';
 let response;
 let jsonResponse;
 
-test.describe('Users API test @api',() =>{
+test.describe('Users API test',() =>{
     // Test lifecycle logging is now handled automatically by test-helpers-fixture
 
     /**

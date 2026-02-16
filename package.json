@@ -6,7 +6,7 @@
     "uim": "npx playwright test --project=ui",
     "debug": "npx playwright test --project=debug",
     "repeat": "npx playwright test --prepeate-each 5",
-    "api": "npx playwright test --grep @api",
+    "api": "npx playwright test --project=api",
     "ui": "npx playwright test --project=ui",
     "ft": "npx playwright test --grep @ft",
     "staging": "cross-env ENV=staging npx playwright test --grep @ft",
