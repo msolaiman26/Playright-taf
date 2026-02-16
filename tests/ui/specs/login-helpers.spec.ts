@@ -43,10 +43,8 @@ test.describe('✅ Best Practice: POM with Fixture', () => {
 });
 
 
-// let _loginPage:LoginPageWinston; // Declare variable to hold loginPage instance for beforeEach access
 test.describe('✅ Best Practice: POM with Fixture_Optimized', () => {
-    test.beforeEach(async ({ logger, pomLazy, actions, assert }) => {
-        // _loginPage = pomLazy.loginPage; // Accessing loginPage for the first time - triggers lazy initialization
+    test.beforeEach(async ({ pomLazy }) => {
         // Fixture provides pomLazy, navigate to login page
         await pomLazy.loginPage.navigateToLogin();
     });

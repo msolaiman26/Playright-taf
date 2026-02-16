@@ -71,7 +71,6 @@ Playwright-taf/
 │   │
 │   ├── pages/                        # Page Object Models
 │   │   ├── login-page.ts             #   Login page with Winston logging
-│   │   ├── login-page-winston.ts     #   Login page (Winston reference impl)
 │   │   ├── home-page.ts              #   Dashboard page with Winston logging
 │   │   ├── pom-eager.ts              #   Page Object Manager — Eager initialization
 │   │   └── pom-lazy.ts               #   Page Object Manager — Lazy initialization
