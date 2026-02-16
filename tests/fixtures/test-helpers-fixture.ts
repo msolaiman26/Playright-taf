@@ -1,9 +1,9 @@
 import { test as base } from '@playwright/test';
-import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-import type { AdvancedAPIHelper } from '../utils/advanced-api-helper';
-import { Logger } from '../utils/Logger';
-import { HelperFactory } from '../factories/helper-factory';
+import type { AdvancedActionsHelper } from '../../src/utils/advanced-actions-helper';
+import type { AdvancedAssertionsHelper } from '../../src/utils/advanced-assertions-helper';
+import type { AdvancedAPIHelper } from '../../src/utils/advanced-api-helper';
+import { Logger } from '../../src/utils/Logger';
+import { HelperFactory } from '../../src/factories/helper-factory';
 
 /**
  * Type definition for standalone test helpers (no page object manager).

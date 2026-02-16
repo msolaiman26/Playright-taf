@@ -15,7 +15,7 @@
  * - Test lifecycle logging (start/end/duration/summary)
  * - Structured log4js output to console and files
  */
-import { test } from '../../../src/fixtures/test-helpers-fixture';
+import { test } from '../../fixtures/test-helpers-fixture';
 
 // Shared variables for response and parsed JSON across tests
 let response;

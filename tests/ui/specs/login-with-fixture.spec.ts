@@ -11,7 +11,7 @@
  *   - actions:   AdvancedActionsHelper
  *   - assert:    AdvancedAssertionsHelper (prints summary after each test)
  */
-import { test } from '../fixtures/login-fixture';
+import { test } from '../../fixtures/login-fixture';
 import tsData from '../../../src/data/test-users';
 
 //====================Tests======================

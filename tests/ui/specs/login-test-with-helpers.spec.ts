@@ -1,4 +1,4 @@
-import { test } from '../../../src/fixtures/pom-lazy-fixture';
+import { test } from '../../fixtures/pom-lazy-fixture';
 import { LoginPage } from '../../../src/pages/login-page';
 
 /**

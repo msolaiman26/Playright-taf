@@ -15,12 +15,12 @@
  *   - assert:     AdvancedAssertionsHelper with automatic summary on teardown
  */
 import { test as base } from '@playwright/test';
-import { POMEager } from '../../../src/pages/pom-eager';
-import { LoginPage } from '../../../src/pages/login-page';
-import { AdvancedActionsHelper } from '../../../src/utils/advanced-actions-helper';
-import { AdvancedAssertionsHelper } from '../../../src/utils/advanced-assertions-helper';
-import { Logger } from '../../../src/utils/Logger';
-import { HelperFactory } from '../../../src/factories/helper-factory';
+import { POMEager } from '../../src/pages/pom-eager';
+import { LoginPage } from '../../src/pages/login-page';
+import { AdvancedActionsHelper } from '../../src/utils/advanced-actions-helper';
+import { AdvancedAssertionsHelper } from '../../src/utils/advanced-assertions-helper';
+import { Logger } from '../../src/utils/Logger';
+import { HelperFactory } from '../../src/factories/helper-factory';
 
 /** Type definition for all fixture values available in login tests */
 type myFixtures = {

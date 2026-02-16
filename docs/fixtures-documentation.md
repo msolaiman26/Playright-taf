@@ -373,9 +373,6 @@ test('Full test', async ({ page, logger, pomLazy, actions, assert }) => {
 });
 ```
 
-**Used By:**
-- ✅ `tests/ui/specs/login-helpers-log4js.spec.ts`
-
 **Pros:**
 - ✅ Maximum flexibility (use only what you need)
 - ✅ Granular control
@@ -454,7 +451,6 @@ test('Login test with auto-navigation', async ({ pomEager, loginPage, actions, a
 | `login-test-with-helpers.spec.ts` | pom-lazy-fixture | Login | ✅ Only login page, lazy is efficient |
 | `login-with-DD.spec.ts` | pom-lazy-fixture | Login (mostly) | ✅ Optimized to use lazy loading |
 | `login-with-builder.spec.ts` | pom-lazy-fixture | Login (mostly) | ✅ Optimized to use lazy loading |
-| `login-helpers-log4js.spec.ts` | test-fixtures | Login, Home | ✅ Demonstrates granular fixture usage |
 | `login-with-fixture.spec.ts` | login-fixture | Login | ✅ Now using HelperFactory for consistency |
 | `network-interception.spec.ts` | test-helpers-fixture | None (API test) | ✅ Optimized for API testing |
 | `users-test.spec.ts` | test-helpers-fixture (apiTestHelpers) | None (API test) | ✅ Using apiTestHelpers for automatic API logging |
@@ -541,7 +537,7 @@ this.assert = new AdvancedAssertionsHelper(page, testName || 'HomePage');
 this.actions = new AdvancedActionsHelper(page, `${testName}-actions`);
 this.assert = new AdvancedAssertionsHelper(page, `${testName}-assertions`);
 
-// LoginPage4js.ts - Manual instantiation (NOT DRY)
+// LoginPage.ts - Manual instantiation (NOT DRY)
 this.actions = new AdvancedActionsHelper(page, `${testName}-actions`);
 this.assert = new AdvancedAssertionsHelper(page, `${testName}-assertions`);
 ```
@@ -558,11 +554,9 @@ this.assert = helpers.assert;
 **Files Refactored:**
 - ✅ `src/pages/home-page.ts`
 - ✅ `src/pages/login-page.ts`
-- ✅ `src/pages/login-page-log4js.ts`
-
 **Impact:**
-- **Before**: 3 page objects with manual instantiation = 6 lines of duplicated code
-- **After**: 3 page objects using HelperFactory = Single source of truth
+- **Before**: Page objects with manual instantiation = duplicated code
+- **After**: Page objects using HelperFactory = Single source of truth
 - **Benefit**: If helper constructor changes, only HelperFactory needs updating
 
 **Recommendation:** ✅ **COMPLETED - All page objects now use HelperFactory**
@@ -1027,8 +1021,6 @@ Special Cases:
 **Page Objects (3):**
 6. `src/pages/home-page.ts`
 7. `src/pages/login-page.ts`
-8. `src/pages/login-page-log4js.ts`
-
 **Helpers (2):**
 9. `src/utils/advanced-api-helper.ts` (NEW - API testing helper)
 10. `src/factories/helper-factory.ts` (extended for API helpers)

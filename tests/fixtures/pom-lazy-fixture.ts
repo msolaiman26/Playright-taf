@@ -1,9 +1,9 @@
 import { test as base } from '@playwright/test';
-import { POMLazy } from '../pages/pom-lazy';
-import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-import { Logger } from '../utils/Logger';
-import { HelperFactory } from '../factories/helper-factory';
+import { AdvancedAssertionsHelper } from '../../src/utils/advanced-assertions-helper';
+import { AdvancedActionsHelper } from '../../src/utils/advanced-actions-helper';
+import { Logger } from '../../src/utils/Logger';
+import { HelperFactory } from '../../src/factories/helper-factory';
+import { POMLazy } from '../../src/pages/pom-lazy';
 
 /**
  * Type definition bundling the POMLazy page object manager with

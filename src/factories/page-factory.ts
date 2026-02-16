@@ -26,7 +26,6 @@
 import { Page } from '@playwright/test';
 import { LoginPage } from '../pages/login-page';
 import { HomePage } from '../pages/home-page';
-import { LoginPage4js } from '../pages/login-page-log4js';
 import { Logger } from '../utils/Logger';
 
 export class PageFactory {
@@ -37,15 +36,6 @@ export class PageFactory {
         const logger = Logger.getLogger('PageFactory');
         logger.debug(`Creating LoginPage for test: ${testName}`);
         return new LoginPage(page, testName);
-    }
-
-    /**
-     * Create a LoginPage4js instance (log4js version)
-     */
-    static createLoginPage4js(page: Page, testName: string): LoginPage4js {
-        const logger = Logger.getLogger('PageFactory');
-        logger.debug(`Creating LoginPage4js for test: ${testName}`);
-        return new LoginPage4js(page, testName);
     }
 
     /**

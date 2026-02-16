@@ -69,7 +69,6 @@ export class LoginPage {
 **Files:**
 - `src/pages/login-page.ts`
 - `src/pages/home-page.ts`
-- `src/pages/login-page-log4js.ts`
 
 **Benefits:**
 - ✅ Tests don't access locators directly
@@ -106,13 +105,13 @@ export class POMEager {
 ```typescript
 // src/pages/pom-lazy.ts
 export class POMLazy {
-    private _loginPage?: LoginPage4js;
+    private _loginPage?: LoginPage;
     private _homePage?: HomePage;
 
     // Lazy initialization with caching
-    get loginPage(): LoginPage4js {
+    get loginPage(): LoginPage {
         if (!this._loginPage) {
-            this._loginPage = new LoginPage4js(this.page, this._testName);
+            this._loginPage = new LoginPage(this.page, this._testName);
         }
         return this._loginPage;
     }

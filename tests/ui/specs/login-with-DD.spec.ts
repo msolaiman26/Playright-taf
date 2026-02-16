@@ -1,4 +1,4 @@
-import { test } from '../../../src/fixtures/pom-lazy-fixture';
+import { test } from '../../fixtures/pom-lazy-fixture';
 import jsonData from '../../../src/data/test-users.json'
 import tsData from '../../../src/data/test-users';
 import invalidData from '../../../src/data/invalid-test-users'

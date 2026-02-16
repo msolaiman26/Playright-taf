@@ -104,32 +104,7 @@
 
 ---
 
-### 4. **log4js-logging-guide.md**
-
-**Complete log4js Integration Guide**
-
-**Purpose:** Everything about logging in the framework
-
-**Contains:**
-- ✅ Why log4js over manual logging
-- ✅ Architecture & configuration
-- ✅ Output channels (console, file, HTML)
-- ✅ Log levels (TRACE → FATAL)
-- ✅ Usage patterns for all components
-- ✅ Category naming conventions
-- ✅ HTML report generation
-- ✅ Troubleshooting
-
-**Read this if you need to:**
-- Add logging to new components
-- Understand log levels
-- Generate HTML reports
-- Configure logging
-- Debug logging issues
-
----
-
-### 5. **README.md**
+### 4. **README.md**
 
 **Project Overview & Getting Started**
 
@@ -167,7 +142,6 @@
 - **Quick Reference**: README.md > Custom Fixtures
 
 ### Logging
-- **Complete Guide**: log4js-logging-guide.md
 - **Quick Reference**: README.md > Logging with log4js
 - **FAQ**: framework-faq.md > Logging section
 
@@ -184,8 +158,6 @@
 ### Troubleshooting
 - **Debug Guide**: framework-faq.md > Troubleshooting
 - **Flaky Tests**: framework-faq.md > Troubleshooting
-- **Logging**: log4js-logging-guide.md > Troubleshooting
-
 ---
 
 ## 📋 Quick Navigation
@@ -200,7 +172,7 @@
 | Learn about design patterns | design-patterns-analysis.md | All sections |
 | Understand Builder Pattern | framework-faq.md | Design Patterns > Builder |
 | Understand Factory Pattern | framework-faq.md | Design Patterns > Factory |
-| Add logging | log4js-logging-guide.md | Usage Patterns |
+| Add logging | README.md | Logging with log4js |
 | Debug test failures | framework-faq.md | Troubleshooting |
 | Fix flaky tests | framework-faq.md | Troubleshooting |
 | Create new page object | framework-faq.md | Page Objects |
@@ -299,7 +271,6 @@
 9. ✅ **Page Objects Refactored** to use HelperFactory (2026-02-15):
    - `src/pages/home-page.ts` ✅
    - `src/pages/login-page.ts` ✅
-   - `src/pages/login-page-log4js.ts` ✅
    - **Result**: 100% HelperFactory adoption across entire framework
 
 ---
@@ -312,7 +283,7 @@
 2. **framework-faq.md** - Learn core concepts (fixtures, POM, patterns)
 3. **fixtures-documentation.md** - Deep dive into fixtures
 4. **design-patterns-analysis.md** - Understand all design patterns
-5. **log4js-logging-guide.md** - Master logging
+5. **README.md** - Logging with log4js
 
 **Experienced? Jump to:**
 - **fixtures-documentation.md** > Recommendations
@@ -327,7 +298,7 @@
 - General concepts → framework-faq.md
 - Specific fixtures → fixtures-documentation.md
 - Design patterns → design-patterns-analysis.md
-- Logging → log4js-logging-guide.md
+- Logging → README.md > Logging with log4js
 - Getting started → README.md
 
 **Feedback & Issues:**

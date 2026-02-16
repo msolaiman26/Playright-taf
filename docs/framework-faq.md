@@ -76,7 +76,7 @@ For detailed analysis, see [docs/design-patterns-analysis.md](design-patterns-an
 | [README.md](../README.md) | Project overview, getting started, key features |
 | [design-patterns-analysis.md](design-patterns-analysis.md) | All 12 design patterns with examples and recommendations |
 | [fixtures-documentation.md](fixtures-documentation.md) | Complete fixture catalog, usage analysis, DRY/SOLID recommendations |
-| [log4js-logging-guide.md](log4js-logging-guide.md) | Comprehensive log4js integration guide |
+| [README.md](../README.md) | Logging with log4js section |
 | [framework-faq.md](framework-faq.md) | This document - FAQ and quick reference |
 
 ---
@@ -598,7 +598,7 @@ TRACE < DEBUG < INFO < WARN < ERROR < FATAL
 - Default level: `DEBUG`
 - Can override via `LOG_LEVEL` environment variable
 
-**See also:** [log4js-logging-guide.md](log4js-logging-guide.md)
+**See also:** `src/utils/Logger.ts` for the Logger utility implementation
 
 ---
 
@@ -887,7 +887,7 @@ import { POMLazy } from '../../../src/pages/pom-lazy';
 - [README.md](../README.md) - Project overview
 - [design-patterns-analysis.md](design-patterns-analysis.md) - All patterns with examples
 - [fixtures-documentation.md](fixtures-documentation.md) - Complete fixture guide
-- [log4js-logging-guide.md](log4js-logging-guide.md) - Logging integration
+- [README.md](../README.md) - Logging with log4js
 
 **Feedback:**
 - Report issues: https://github.com/anthropics/claude-code/issues

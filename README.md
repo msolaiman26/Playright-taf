@@ -71,7 +71,6 @@ Playwright-taf/
 │   │
 │   ├── pages/                        # Page Object Models
 │   │   ├── login-page.ts             #   Login page with log4js logging
-│   │   ├── login-page-log4js.ts      #   Login page (log4js reference impl)
 │   │   ├── home-page.ts              #   Dashboard page with log4js logging
 │   │   ├── pom-eager.ts              #   Page Object Manager — Eager initialization
 │   │   └── pom-lazy.ts               #   Page Object Manager — Lazy initialization
@@ -99,7 +98,6 @@ Playwright-taf/
 │   │       ├── login-with-POManagerEager.spec.ts    # Login tests (POMEager)
 │   │       ├── login-with-POManagerLazy.spec.ts     # Login tests (POMLazy)
 │   │       ├── login-test-with-helpers.spec.ts      # Best practice demo
-│   │       ├── login-helpers-log4js.spec.ts         # Log4js logging demo tests
 │   │       └── login-with-DD.spec.ts                # Data-driven login tests
 │   │
 │   └── api/                          # API tests (no browser needed)
@@ -108,11 +106,7 @@ Playwright-taf/
 │           └── network-interception.spec.ts         # Network mocking & interception
 │
 ├── docs/                             # Documentation
-│   ├── log4js-logging-guide.md       # Comprehensive log4js usage guide
 │   └── design-patterns-analysis.md   # Design patterns analysis and recommendations
-│
-├── docs/                             # Documentation
-│   └── log4js-logging-guide.md       #   Detailed log4js integration guide
 │
 ├── test-logs/                        # Generated: log4js log files + HTML report
 │   ├── test-execution.log            #   Rolling daily log file (all categories)
@@ -534,7 +528,7 @@ this.logger.error("Login failed");
 this.logger.fatal("Critical: page crashed");
 ```
 
-For the full integration guide, see [docs/log4js-logging-guide.md](docs/log4js-logging-guide.md).
+For details on the Logger utility, see `src/utils/Logger.ts`.
 
 ### Network Interception & Mocking
 

@@ -12,7 +12,7 @@
  * These tests use the test-helpers-fixture for lightweight helper access.
  * For test 1 (which requires login), LoginPage is manually instantiated.
  */
-import { test } from '../../../src/fixtures/test-helpers-fixture';
+import { test } from '../../fixtures/test-helpers-fixture';
 import { LoginPage } from '../../../src/pages/login-page';
 import tsData from '../../../src/data/test-users';
 import mockedResponse from '../../../src/mocks/response-interception.json'
