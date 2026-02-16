@@ -1,6 +1,6 @@
 import { APIRequestContext, APIResponse } from '@playwright/test';
-import { Logger as Log4jsLogger } from 'log4js';
-import { Logger } from './Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 
 /**
  * AdvancedAPIHelper - Provides automatic logging for API requests and responses.
@@ -22,7 +22,7 @@ import { Logger } from './Logger';
  */
 export class AdvancedAPIHelper {
     private readonly request: APIRequestContext;
-    private readonly logger: Log4jsLogger;
+    private readonly logger: winston.Logger;
     private stepCount: number = 0;
 
     /**

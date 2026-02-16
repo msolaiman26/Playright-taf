@@ -1,8 +1,8 @@
 import { Locator, Page } from "@playwright/test";
 import fs from "fs";
 import path from "path";
-import { Logger as Log4jsLogger } from 'log4js';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 
 /**
  * AdvancedActionsHelper — A wrapper around common Playwright page interactions
@@ -20,7 +20,7 @@ import { Logger } from '../utils/Logger';
  */
 export class AdvancedActionsHelper {
     readonly page: Page;
-    private readonly logger: Log4jsLogger;
+    private readonly logger: winston.Logger;
     private stepCounter: number = 0;       // Auto-incrementing counter for sequential step labels
     private screenshotDir: string;          // Directory where failure screenshots are stored
 
@@ -91,7 +91,7 @@ export class AdvancedActionsHelper {
             this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
         } catch (error) {
             const duration = Date.now() - startTime;
-            this.logger.fatal(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
+            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
             await this.captureFailureScreenshot(logMessage);
             throw error;
         }

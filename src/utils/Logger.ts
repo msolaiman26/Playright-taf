@@ -1,9 +1,59 @@
-import log4js, { Logger as Log4jsLogger } from "log4js";
+import winston from "winston";
+import Transport from "winston-transport";
 import path from "path";
 import fs from "fs";
 
+const LOG_DIR = path.resolve("test-logs");
+const HTML_REPORT_PATH = path.resolve("test-logs", "test-report.html");
+
+// Ensure log directory exists
+if (!fs.existsSync(LOG_DIR)) {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+}
+
 /**
- * Logger utility for Playwright tests using log4js.
+ * Log entry interface for HTML report generation.
+ */
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  category: string;
+  message: string;
+}
+
+/**
+ * In-memory collector for HTML report generation.
+ */
+const logEntries: LogEntry[] = [];
+
+/**
+ * Custom Winston transport that collects log entries in memory
+ * for HTML report generation.
+ */
+class HtmlCollectorTransport extends Transport {
+  private category: string;
+
+  constructor(category: string, opts?: Transport.TransportStreamOptions) {
+    super(opts);
+    this.category = category;
+  }
+
+  log(info: any, callback: () => void): void {
+    setImmediate(() => this.emit("logged", info));
+
+    logEntries.push({
+      timestamp: info.timestamp || new Date().toISOString(),
+      level: info.level.toUpperCase(),
+      category: this.category,
+      message: info.message,
+    });
+
+    callback();
+  }
+}
+
+/**
+ * Logger factory for Playwright tests using Winston.
  * Supports Console, File, and HTML report logging.
  *
  * Usage:
@@ -12,80 +62,50 @@ import fs from "fs";
  *   logger.info("Navigating to login page");
  */
 export class Logger {
-  private static initialized = false;
-  private static readonly LOG_DIR = path.resolve("test-logs");
-  private static readonly HTML_REPORT_PATH = path.resolve(
-    "test-logs",
-    "test-report.html"
-  );
-  private static logEntries: LogEntry[] = [];
-
-  private static initialize(): void {
-    if (this.initialized) return;
-
-    // Ensure log directory exists
-    if (!fs.existsSync(this.LOG_DIR)) {
-      fs.mkdirSync(this.LOG_DIR, { recursive: true });
-    }
-
-    log4js.configure({
-      appenders: {
-        // Console appender with colored output
-        console: {
-          type: "console",
-          layout: {
-            type: "pattern",
-            pattern: "%[%d{yyyy-MM-dd hh:mm:ss.SSS} [%p] [%c] - %m%]",
-          },
-        },
-        // Rolling file appender (auto-rotates at 10MB, keeps 5 backups)
-        file: {
-          type: "dateFile",
-          filename: path.join(this.LOG_DIR, "test-execution.log"),
-          pattern: "yyyy-MM-dd",
-          keepFileExt: true,
-          numBackups: 5,
-          layout: {
-            type: "pattern",
-            pattern: "%d{yyyy-MM-dd hh:mm:ss.SSS} [%p] [%c] - %m",
-          },
-        },
-        // Custom appender to collect entries for HTML report
-        htmlCollector: {
-          type: { configure: () => this.createHtmlAppender() },
-        },
-      },
-      categories: {
-        default: {
-          appenders: ["console", "file", "htmlCollector"],
-          level: process.env.LOG_LEVEL || "debug",
-        },
-      },
-    });
-
-    this.initialized = true;
-  }
+  private static loggers: Map<string, winston.Logger> = new Map();
 
   /**
    * Get a logger instance for a specific category (e.g., test name, page object).
    */
-  static getLogger(category: string): Log4jsLogger {
-    this.initialize();
-    return log4js.getLogger(category);
-  }
+  static getLogger(category: string): winston.Logger {
+    if (this.loggers.has(category)) {
+      return this.loggers.get(category)!;
+    }
 
-  /**
-   * Custom appender function that collects log entries for HTML generation.
-   */
-  private static createHtmlAppender() {
-    return (loggingEvent: log4js.LoggingEvent) => {
-      this.logEntries.push({
-        timestamp: loggingEvent.startTime.toISOString(),
-        level: loggingEvent.level.levelStr,
-        category: loggingEvent.categoryName,
-        message: loggingEvent.data.join(" "),
-      });
-    };
+    const logger = winston.createLogger({
+      level: process.env.LOG_LEVEL || "debug",
+      transports: [
+        // Console transport with colored output
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
+            winston.format.colorize(),
+            winston.format.printf(({ timestamp, level, message }) => {
+              return `${timestamp} [${level}] [${category}] - ${message}`;
+            })
+          ),
+        }),
+
+        // File transport (10MB max, keeps 5 rotated files)
+        new winston.transports.File({
+          filename: path.join(LOG_DIR, "test-execution.log"),
+          maxsize: 10 * 1024 * 1024,
+          maxFiles: 5,
+          format: winston.format.combine(
+            winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
+            winston.format.printf(({ timestamp, level, message }) => {
+              return `${timestamp} [${level.toUpperCase()}] [${category}] - ${message}`;
+            })
+          ),
+        }),
+
+        // Custom transport to collect entries for HTML report
+        new HtmlCollectorTransport(category),
+      ],
+    });
+
+    this.loggers.set(category, logger);
+    return logger;
   }
 
   /**
@@ -119,7 +139,7 @@ export class Logger {
         .stat-info .value { color: #0d6efd; }
         .stat-warn .value { color: #ffc107; }
         .stat-error .value { color: #dc3545; }
-        .stat-fatal .value { color: #6f42c1; }
+        .stat-verbose .value { color: #6f42c1; }
         
         /* Filter Controls */
         .controls { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -141,12 +161,12 @@ export class Logger {
         
         /* Log Level Badges */
         .level-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .level-SILLY { background: #f0f0f0; color: #666; }
         .level-DEBUG { background: #e9ecef; color: #495057; }
+        .level-VERBOSE { background: #e2d9f3; color: #432874; }
         .level-INFO { background: #cfe2ff; color: #084298; }
         .level-WARN { background: #fff3cd; color: #664d03; }
         .level-ERROR { background: #f8d7da; color: #842029; }
-        .level-FATAL { background: #e2d9f3; color: #432874; }
-        .level-TRACE { background: #f0f0f0; color: #666; }
     </style>
 </head>
 <body>
@@ -160,7 +180,7 @@ export class Logger {
             <div class="stat-card stat-info"><div class="value">${stats.info}</div><div class="label">Info</div></div>
             <div class="stat-card stat-warn"><div class="value">${stats.warn}</div><div class="label">Warn</div></div>
             <div class="stat-card stat-error"><div class="value">${stats.error}</div><div class="label">Error</div></div>
-            <div class="stat-card stat-fatal"><div class="value">${stats.fatal}</div><div class="label">Fatal</div></div>
+            <div class="stat-card stat-verbose"><div class="value">${stats.verbose}</div><div class="label">Verbose</div></div>
         </div>
         
         <div class="controls">
@@ -168,16 +188,16 @@ export class Logger {
             <input type="text" id="searchInput" placeholder="Search messages..." onkeyup="filterTable()">
             <select id="levelFilter" onchange="filterTable()">
                 <option value="">All Levels</option>
-                <option value="TRACE">Trace</option>
+                <option value="SILLY">Silly</option>
                 <option value="DEBUG">Debug</option>
+                <option value="VERBOSE">Verbose</option>
                 <option value="INFO">Info</option>
                 <option value="WARN">Warn</option>
                 <option value="ERROR">Error</option>
-                <option value="FATAL">Fatal</option>
             </select>
             <select id="categoryFilter" onchange="filterTable()">
                 <option value="">All Categories</option>
-                ${[...new Set(this.logEntries.map((e) => e.category))].map((c) => `<option value="${c}">${c}</option>`).join("")}
+                ${[...new Set(logEntries.map((e) => e.category))].map((c) => `<option value="${c}">${c}</option>`).join("")}
             </select>
             <button class="btn-filter" onclick="clearFilters()">Clear</button>
         </div>
@@ -193,7 +213,7 @@ export class Logger {
                     </tr>
                 </thead>
                 <tbody>
-                    ${this.logEntries
+                    ${logEntries
                       .map(
                         (entry) => `
                     <tr data-level="${entry.level}" data-category="${entry.category}">
@@ -234,35 +254,38 @@ export class Logger {
 </body>
 </html>`;
 
-    fs.writeFileSync(this.HTML_REPORT_PATH, html, "utf-8");
-    console.log(`\n📊 HTML Report generated: ${this.HTML_REPORT_PATH}\n`);
+    fs.writeFileSync(HTML_REPORT_PATH, html, "utf-8");
+    console.log(`\n📊 HTML Report generated: ${HTML_REPORT_PATH}\n`);
   }
 
   /**
-   * Shutdown log4js (flush pending logs). Call in globalTeardown.
+   * Flush all loggers. Call in globalTeardown.
    */
   static async shutdown(): Promise<void> {
-    return new Promise((resolve) => {
-      log4js.shutdown(() => resolve());
-    });
+    const closePromises = Array.from(this.loggers.values()).map(
+      (logger) =>
+        new Promise<void>((resolve) => {
+          logger.on("finish", resolve);
+          logger.end();
+        })
+    );
+    await Promise.all(closePromises);
   }
 
   /** Reset log entries (useful for test isolation). */
   static clearEntries(): void {
-    this.logEntries = [];
+    logEntries.length = 0;
   }
 
   private static calculateStats() {
-    const total = this.logEntries.length;
+    const total = logEntries.length;
     const countLevel = (lvl: string) =>
-      this.logEntries.filter((e) => e.level === lvl).length;
+      logEntries.filter((e) => e.level === lvl).length;
 
     let duration = "N/A";
     if (total > 0) {
-      const start = new Date(this.logEntries[0].timestamp).getTime();
-      const end = new Date(
-        this.logEntries[total - 1].timestamp
-      ).getTime();
+      const start = new Date(logEntries[0].timestamp).getTime();
+      const end = new Date(logEntries[total - 1].timestamp).getTime();
       const diffMs = end - start;
       const mins = Math.floor(diffMs / 60000);
       const secs = Math.floor((diffMs % 60000) / 1000);
@@ -275,7 +298,7 @@ export class Logger {
       info: countLevel("INFO"),
       warn: countLevel("WARN"),
       error: countLevel("ERROR"),
-      fatal: countLevel("FATAL"),
+      verbose: countLevel("VERBOSE"),
       duration,
     };
   }
@@ -287,11 +310,4 @@ export class Logger {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
-}
-
-interface LogEntry {
-  timestamp: string;
-  level: string;
-  category: string;
-  message: string;
 }

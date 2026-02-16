@@ -2,23 +2,26 @@
  * Global Teardown — Runs ONCE after all test files have finished.
  *
  * Purpose: Performs cleanup operations after the entire test suite completes.
- * Currently opens the base URL in a visible browser (headless: false) and
- * immediately closes it. This can be extended with actual cleanup logic
- * (e.g., resetting test data, revoking sessions, or generating reports).
+ * - Flushes all Winston loggers to ensure all logs are written to disk
+ * - Generates the HTML log report from collected log entries
  *
- * Currently commented out in playwright.config.ts but ready to enable.
+ * This can be extended with actual cleanup logic if needed
+ * (e.g., resetting test data, revoking sessions, etc.).
  */
-import { chromium, FullConfig } from "@playwright/test";
+import { Logger } from "../Logger";
 
-async function globalTeardown(config: FullConfig) {
-    // Extract the baseURL from the first project's configuration
-    const { baseURL } = config.projects[0].use;
+async function globalTeardown() {
+    console.log("\n🧹 Running global teardown...");
 
-    // Launch browser, navigate to base URL (placeholder for cleanup logic), and close
-    const browser = await chromium.launch({headless: false, timeout: 10000});
-    const page = await browser.newPage();
-    await page.goto(baseURL!);
-    await browser.close();
+    // Flush all Winston loggers and ensure all logs are written
+    console.log("📝 Flushing Winston loggers...");
+    await Logger.shutdown();
+    console.log("✅ Winston loggers flushed");
+
+    // Generate the HTML log report from collected entries
+    console.log("📊 Generating HTML log report...");
+    Logger.generateHtmlReport("Playwright Test Execution Report");
+    console.log("✅ Global teardown completed\n");
 }
 
 export default globalTeardown;

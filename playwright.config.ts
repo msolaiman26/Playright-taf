@@ -55,7 +55,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 1,
   // retries: 1,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 2 : 3,
   // workers: 2,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
 
@@ -75,25 +75,28 @@ export default defineConfig({
       stylePath: './tests/utils/screenshot.css',
     }
   },
-  timeout: 2*60*1000,              // Per-test timeout: 2 minutes
-  globalTimeout: 3*60*60*1000,     // Total suite timeout: 3 hours (prevents runaway CI builds)
+  timeout: 2 * 60 * 1000,              // Per-test timeout: 2 minutes
+  globalTimeout: 3 * 60 * 60 * 1000,     // Total suite timeout: 3 hours (prevents runaway CI builds)
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   // globalSetup: require.resolve('./tests/utils/setup/global-setup.ts'),
   // globalTeardown: require.resolve('./tests/utils/setup/global-teardown.ts'),
-  
+
+  // Global teardown generates the HTML log report
+  globalTeardown: "./src/utils/setup/global-teardown.ts",
+
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     // baseURL: 'http://127.0.0.1:3000',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace:'retain-on-failure',
-    screenshot: 'on',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
     headless: true,
     // actionTimeout:6000, 
     // navigationTimeout:30000,
     baseURL: process.env.ENV! === 'test'
-    ? baseEnvUrl.test.ui
-    : baseEnvUrl.staging.ui,
+      ? baseEnvUrl.test.ui
+      : baseEnvUrl.staging.ui,
     // storageState: 'storage-state.json', 
   },
 
@@ -166,26 +169,37 @@ export default defineConfig({
     // },
 
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 920 },
-        trace:'retain-on-failure',
-       },
-       metadata:{
-        lang: 0 // 0 for en
-       }
+      name: 'api',
+      testDir: './tests/api',
+      use: {
+        screenshot: 'off',
+        trace: 'off',
+      },
     },
 
-/*     {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'],
-        video: 'retain-on-failure',
+    {
+      name: 'chromium',
+      testIgnore: '**/api/**',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 920 },
+        trace: 'retain-on-failure',
       },
-      metadata:{
-       lang: 1 // 1 for ar
+      metadata: {
+        lang: 0 // 0 for en
       }
     },
- */
+
+    /*     {
+          name: 'firefox',
+          use: { ...devices['Desktop Firefox'],
+            video: 'retain-on-failure',
+          },
+          metadata:{
+           lang: 1 // 1 for ar
+          }
+        },
+     */
     // {
     //   name: 'webkit',
     //   use: { ...devices['Desktop Safari'] },

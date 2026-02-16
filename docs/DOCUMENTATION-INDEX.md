@@ -104,21 +104,25 @@
 
 ---
 
-### 4. **log4js-logging-guide.md**
+### 4. **winston-logging-guide.md** ⭐ UPDATED
 
-**Complete log4js Integration Guide**
+**Complete Winston Integration Guide**
 
 **Purpose:** Everything about logging in the framework
 
 **Contains:**
-- ✅ Why log4js over manual logging
+- ✅ Why Winston over log4js
 - ✅ Architecture & configuration
 - ✅ Output channels (console, file, HTML)
-- ✅ Log levels (TRACE → FATAL)
+- ✅ Log levels (silly → error)
 - ✅ Usage patterns for all components
 - ✅ Category naming conventions
+- ✅ Global teardown integration (CRITICAL)
 - ✅ HTML report generation
+- ✅ Migration guide from log4js
 - ✅ Troubleshooting
+
+**Migration Status:** ✅ Complete (migrated from log4js 2026-02-15)
 
 **Read this if you need to:**
 - Add logging to new components
@@ -126,6 +130,7 @@
 - Generate HTML reports
 - Configure logging
 - Debug logging issues
+- Migrate from log4js
 
 ---
 
@@ -167,9 +172,10 @@
 - **Quick Reference**: README.md > Custom Fixtures
 
 ### Logging
-- **Complete Guide**: log4js-logging-guide.md
-- **Quick Reference**: README.md > Logging with log4js
+- **Complete Guide**: winston-logging-guide.md ⭐
+- **Quick Reference**: README.md > Logging with Winston
 - **FAQ**: framework-faq.md > Logging section
+- **Migration Guide**: winston-logging-guide.md > Migration Summary
 
 ### Page Objects
 - **Concept**: README.md > Page Object Model
@@ -200,7 +206,7 @@
 | Learn about design patterns | design-patterns-analysis.md | All sections |
 | Understand Builder Pattern | framework-faq.md | Design Patterns > Builder |
 | Understand Factory Pattern | framework-faq.md | Design Patterns > Factory |
-| Add logging | log4js-logging-guide.md | Usage Patterns |
+| Add logging | winston-logging-guide.md | Usage Patterns |
 | Debug test failures | framework-faq.md | Troubleshooting |
 | Fix flaky tests | framework-faq.md | Troubleshooting |
 | Create new page object | framework-faq.md | Page Objects |

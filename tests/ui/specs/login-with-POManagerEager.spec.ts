@@ -8,7 +8,7 @@
  * Fixture provides: pomEagerHelpers { pomEager, actions, assert }
  */
 import { test } from '../../../src/fixtures/pom-eager-fixture';
-import { Logger } from '../../../src/utils/Logger';
+import { Logger } from "../../../src/utils/Logger";
 
 const logger = Logger.getLogger('login-with-POManagerEager');
 

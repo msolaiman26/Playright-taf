@@ -1,8 +1,8 @@
 import { type Locator, type Page } from "@playwright/test";
 import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';  // Type-only import for TypeScript
 import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';  // Type-only import for TypeScript
-import { Logger as Log4jsLogger } from 'log4js';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 import { HelperFactory } from '../factories/helper-factory';  // Runtime import for instance creation
 
 /**
@@ -15,7 +15,7 @@ import { HelperFactory } from '../factories/helper-factory';  // Runtime import 
 export class HomePage{
     // ===================== Properties =====================
     readonly page: Page;                                // Playwright Page instance
-    private readonly logger: Log4jsLogger;              // log4js logger for this page
+    private readonly logger: winston.Logger;            // Winston logger for this page
     readonly actions: AdvancedActionsHelper;             // Logged action helper for page interactions
     readonly assert: AdvancedAssertionsHelper;           // Logged assertion helper for verifications
     readonly profile_icn: Locator;                       // User profile dropdown icon (top-right corner)

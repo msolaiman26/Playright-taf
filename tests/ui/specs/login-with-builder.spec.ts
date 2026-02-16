@@ -13,7 +13,7 @@
  * - Chainable methods for fluent API
  */
 
-import { test, expect } from '../../../src/fixtures/pom-lazy-fixture';
+import { test} from '../../../src/fixtures/pom-lazy-fixture';
 import { UserBuilder } from '../../../src/builders/user-builder';
 
 test.describe('✅ Login Tests with Builder Pattern', () => {

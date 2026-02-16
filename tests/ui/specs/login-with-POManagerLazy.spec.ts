@@ -14,7 +14,7 @@
  * Fixture provides: pomLazyHelpers { pomLazy, actions, assert }
  */
 import { test } from '../../../src/fixtures/pom-lazy-fixture';
-import { Logger } from '../../../src/utils/Logger';
+import { Logger } from "../../../src/utils/Logger";
 
 const logger = Logger.getLogger('login-with-POManagerLazy');
 

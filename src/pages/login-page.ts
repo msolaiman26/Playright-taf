@@ -1,8 +1,8 @@
 import { Page, Locator } from '@playwright/test';
 import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';  // Type-only import for TypeScript
 import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';  // Type-only import for TypeScript
-import { Logger as Log4jsLogger } from 'log4js';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 import { HelperFactory } from '../factories/helper-factory';  // Runtime import for instance creation
 
 /**
@@ -18,7 +18,7 @@ import { HelperFactory } from '../factories/helper-factory';  // Runtime import 
  */
 export class LoginPage {
     readonly page: Page;
-    private readonly logger: Log4jsLogger;
+    private readonly logger: winston.Logger; // Logger instance for this page, initialized in constructor
     readonly actions: AdvancedActionsHelper;   // Provides logged page actions (goto, click, fill, etc.)
     readonly assert: AdvancedAssertionsHelper;  // Provides logged assertions (toBeVisible, toHaveText, etc.)
 

@@ -1,8 +1,8 @@
 import { type Page } from "@playwright/test";
 import { LoginPage } from "./login-page";
 import { HomePage } from "./home-page";
-import { Logger as Log4jsLogger } from 'log4js';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 
 /**
  * POMEager — Page Object Manager with Eager Initialization.
@@ -21,7 +21,7 @@ import { Logger } from '../utils/Logger';
  */
 export class POMEager {
     private readonly page: Page;
-    private readonly logger: Log4jsLogger;
+    private readonly logger: winston.Logger;
     private readonly loginPage: LoginPage;
     private readonly homePage: HomePage;
 

@@ -16,7 +16,7 @@ import { test } from '../../../src/fixtures/test-helpers-fixture';
 import { LoginPage } from '../../../src/pages/login-page';
 import tsData from '../../../src/data/test-users';
 import mockedResponse from '../../../src/mocks/response-interception.json'
-import { Logger } from '../../../src/utils/Logger';
+import { Logger } from "../../../src/utils/Logger";
 
 const logger = Logger.getLogger('network-interception');
 

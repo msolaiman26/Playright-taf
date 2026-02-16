@@ -1,5 +1,4 @@
 import { test } from '../../../src/fixtures/test-fixtures';
-import { LoginPage4js } from '../../../src/pages/login-page-log4js';
 
 /**
  * ✅ BEST PRACTICE: POMLazy with Fixture
@@ -44,37 +43,37 @@ test.describe('✅ Best Practice: POM with Fixture', () => {
 });
 
 
-let _loginPage:LoginPage4js; // Declare variable to hold loginPage instance for beforeEach access
+// let _loginPage:LoginPageWinston; // Declare variable to hold loginPage instance for beforeEach access
 test.describe('✅ Best Practice: POM with Fixture_Optimized', () => {
     test.beforeEach(async ({ logger, pomLazy, actions, assert }) => {
-        _loginPage = pomLazy.loginPage; // Accessing loginPage for the first time - triggers lazy initialization
+        // _loginPage = pomLazy.loginPage; // Accessing loginPage for the first time - triggers lazy initialization
         // Fixture provides pomLazy, navigate to login page
-        await _loginPage.navigateToLogin();
+        await pomLazy.loginPage.navigateToLogin();
     });
 
     test('Successful login - valid credentials_Optimized', async ({ pomLazy }) => {
         // ✅ Clean and readable - reads like a user story
-        await _loginPage.login('Admin', 'admin123');
+        await pomLazy.loginPage.login('Admin', 'admin123');
         let _homePage = pomLazy.homePage; // Accessing homePage for the first time - triggers lazy initialization
         await _homePage.assertProfileIcon();
     });
 
-    test('Failed login - invalid username_Optimized', async () => {
+    test('Failed login - invalid username_Optimized', async ({ pomLazy }) => {
         // ✅ Page object handles all UI details
-        await _loginPage.login('InvalidUser', 'wrongpassword');
-        await _loginPage.assertInvalidLoginMessage();
+        await pomLazy.loginPage.login('InvalidUser', 'wrongpassword');
+        await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - invalid password_Optimized', async () => {
+    test('Failed login - invalid password_Optimized', async ({ pomLazy }) => {
         // ✅ Reusable methods across multiple test scenarios
-        await _loginPage.login('Admin', 'wrongpassword');
-        await _loginPage.assertInvalidLoginMessage();
+        await pomLazy.loginPage.login('Admin', 'wrongpassword');
+        await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - empty credentials_Optimized', async () => {
+    test('Failed login - empty credentials_Optimized', async ({ pomLazy }) => {
         // ✅ Method handles edge cases
-        await _loginPage.login('', '');
-        await _loginPage.assertInvalidLoginMessage();
+        await pomLazy.loginPage.login('', '');
+        await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 });
 

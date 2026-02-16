@@ -2,7 +2,8 @@ import { test as base } from '@playwright/test';
 import { POMEager } from '../pages/pom-eager';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 import { HelperFactory } from '../factories/helper-factory';
 
 /**
@@ -10,6 +11,7 @@ import { HelperFactory } from '../factories/helper-factory';
  * standalone action and assertion helpers for direct use in tests.
  */
 type POMEagerHelpers = {
+    logger: winston.Logger;
     pomEager: POMEager;
     actions: AdvancedActionsHelper;
     assert: AdvancedAssertionsHelper;
@@ -44,7 +46,7 @@ export const test = base.extend<{ pomEagerHelpers: POMEagerHelpers }>({
         logger.info(`▶ TEST START: "${testInfo.title}"`);
 
         // Hand control to the test — everything before use() is "setup", after is "teardown"
-        await use({ pomEager, actions, assert });
+        await use({ pomEager, actions, assert, logger });
 
         // Teardown: log the final test result
         if (testInfo.status === 'passed') {

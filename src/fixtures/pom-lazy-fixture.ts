@@ -2,7 +2,8 @@ import { test as base } from '@playwright/test';
 import { POMLazy } from '../pages/pom-lazy';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 import { HelperFactory } from '../factories/helper-factory';
 
 /**
@@ -10,6 +11,7 @@ import { HelperFactory } from '../factories/helper-factory';
  * standalone action and assertion helpers for direct use in tests.
  */
 type POMLazyHelpers = {
+    logger: winston.Logger;
     pomLazy: POMLazy;
     actions: AdvancedActionsHelper;
     assert: AdvancedAssertionsHelper;
@@ -44,7 +46,7 @@ export const test = base.extend<{ pomLazyHelpers: POMLazyHelpers }>({
         logger.info(`▶ TEST START: "${testInfo.title}"`);
 
         // Hand control to the test
-        await use({ pomLazy, actions, assert });
+        await use({ pomLazy, actions, assert, logger });
 
         // Teardown: log the final test result
         if (testInfo.status === 'passed') {

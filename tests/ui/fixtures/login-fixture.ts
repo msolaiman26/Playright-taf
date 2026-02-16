@@ -19,7 +19,7 @@ import { POMEager } from '../../../src/pages/pom-eager';
 import { LoginPage } from '../../../src/pages/login-page';
 import { AdvancedActionsHelper } from '../../../src/utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../../../src/utils/advanced-assertions-helper';
-import { Logger } from '../../../src/utils/Logger';
+import { Logger } from "../../../src/utils/Logger";
 import { HelperFactory } from '../../../src/factories/helper-factory';
 
 /** Type definition for all fixture values available in login tests */

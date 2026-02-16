@@ -1,6 +1,6 @@
 import { test as base } from "@playwright/test";
+import winston from "winston";
 import { Logger } from "../utils/Logger";
-import { Logger as Log4jsLogger } from "log4js";
 import { AdvancedAssertionsHelper } from "../utils/advanced-assertions-helper";
 import { AdvancedActionsHelper } from "../utils/advanced-actions-helper";
 import { POMLazy } from "../pages/pom-lazy";
@@ -17,7 +17,7 @@ import { HelperFactory } from "../factories/helper-factory";
  *   });
  */
 type LoggerFixture = {
-  logger: Log4jsLogger;
+  logger: winston.Logger;
   pomLazy: POMLazy;
   actions: AdvancedActionsHelper;
   assert: AdvancedAssertionsHelper;

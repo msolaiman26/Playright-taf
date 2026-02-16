@@ -26,8 +26,8 @@
 import { Page } from '@playwright/test';
 import { LoginPage } from '../pages/login-page';
 import { HomePage } from '../pages/home-page';
-import { LoginPage4js } from '../pages/login-page-log4js';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 
 export class PageFactory {
     /**

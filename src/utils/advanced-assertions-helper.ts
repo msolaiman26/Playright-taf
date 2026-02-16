@@ -1,8 +1,8 @@
 import { Locator, Page, expect } from "@playwright/test";
 import fs from "fs";
 import path from "path";
-import { Logger as Log4jsLogger } from 'log4js';
-import { Logger } from '../utils/Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 
 /**
  * AdvancedAssertionsHelper — A comprehensive assertion library with logging,
@@ -29,7 +29,7 @@ import { Logger } from '../utils/Logger';
  */
 export class AdvancedAssertionsHelper {
     readonly page: Page;
-    private readonly logger: Log4jsLogger;
+    private readonly logger: winston.Logger;
     private assertionCounter: number = 0;   // Running count of all assertions executed
     private screenshotDir: string;           // Directory for assertion failure screenshots
     private readonly enableScreenshots: boolean; // Controls whether screenshots are captured

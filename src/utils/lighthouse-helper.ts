@@ -22,8 +22,8 @@ import * as os from "os";
 // import { playAudit } from "playwright-lighthouse";
 import tsData from '../data/test-users';
 import { LoginPage } from "../pages/login-page";
-import { exec } from 'child_process';
-import { Logger } from './Logger';
+import winston from "winston";
+import { Logger } from "../utils/Logger";
 
 const logger = Logger.getLogger('lighthouse-helper');
 
