@@ -40,15 +40,6 @@ export class PageFactory {
     }
 
     /**
-     * Create a LoginPage4js instance (log4js version)
-     */
-    static createLoginPage4js(page: Page, testName: string): LoginPage4js {
-        const logger = Logger.getLogger('PageFactory');
-        logger.debug(`Creating LoginPage4js for test: ${testName}`);
-        return new LoginPage4js(page, testName);
-    }
-
-    /**
      * Create a HomePage instance
      */
     static createHomePage(page: Page, testName: string): HomePage {

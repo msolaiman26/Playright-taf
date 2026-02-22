@@ -12,7 +12,6 @@
  */
 import testData from '../../data/test-users';
 import stagingData from '../../data/staging-users';
-import winston from "winston";
 import { Logger } from "../../utils/Logger";
 
 const logger = Logger.getLogger('env-setup');

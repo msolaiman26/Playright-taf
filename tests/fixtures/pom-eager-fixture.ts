@@ -1,10 +1,10 @@
 import { test as base } from '@playwright/test';
-import { POMEager } from '../pages/pom-eager';
-import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
+import { POMEager } from '../../src/pages/pom-eager';
+import { AdvancedActionsHelper } from '../../src/utils/advanced-actions-helper';
+import { AdvancedAssertionsHelper } from '../../src/utils/advanced-assertions-helper';
 import winston from "winston";
-import { Logger } from "../utils/Logger";
-import { HelperFactory } from '../factories/helper-factory';
+import { Logger } from "../../src/utils/Logger";
+import { HelperFactory } from '../../src/factories/helper-factory';
 
 /**
  * Type definition bundling the POMEager page object manager with

@@ -15,14 +15,13 @@
  * - Test lifecycle logging (start/end/duration/summary)
  * - Structured log4js output to console and files
  */
-import { test } from '../../../src/fixtures/test-helpers-fixture';
+import { test } from '../../fixtures/api-test-fixture';
 
 // Shared variables for response and parsed JSON across tests
 let response;
 let jsonResponse;
 
 test.describe('Users API test',() =>{
-    // Test lifecycle logging is now handled automatically by test-helpers-fixture
 
     /**
      * GET /posts — Verifies that fetching all posts returns:

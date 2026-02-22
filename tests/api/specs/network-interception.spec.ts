@@ -9,10 +9,10 @@
  *   4. Request Redirection  — Intercept a request and redirect it to a different URL
  *   5. Request Abort        — Block specific resource types (e.g., images) from loading
  *
- * These tests use the test-helpers-fixture for lightweight helper access.
+ * These tests use the api-test-fixture for lightweight helper access.
  * For test 1 (which requires login), LoginPage is manually instantiated.
  */
-import { test } from '../../../src/fixtures/test-helpers-fixture';
+import { test } from '../../fixtures/api-test-fixture';
 import { LoginPage } from '../../../src/pages/login-page';
 import tsData from '../../../src/data/test-users';
 import mockedResponse from '../../../src/mocks/response-interception.json'
