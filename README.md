@@ -1,6 +1,6 @@
 # Playwright Test Automation Framework (TAF)
 
-A comprehensive, enterprise-grade test automation framework built with **Playwright** and **TypeScript**. Demonstrates industry best practices including the Page Object Model (POM), custom fixtures, advanced logging, soft/hard assertions, network interception, visual regression, and performance testing.
+A comprehensive, enterprise-grade test automation framework built with **Playwright** and **TypeScript**. Demonstrates industry best practices including the Page Object Model (POM), custom fixtures, advanced logging, soft/hard assertions, network interception, and data-driven testing.
 
 **Target Application:** [OrangeHRM Demo](https://opensource-demo.orangehrmlive.com) (UI Tests) & [JSONPlaceholder](https://jsonplaceholder.typicode.com) (API Tests)
 
@@ -22,6 +22,7 @@ A comprehensive, enterprise-grade test automation framework built with **Playwri
   - [Page Object Model (POM)](#page-object-model-pom)
   - [Eager vs Lazy Initialization](#eager-vs-lazy-initialization)
   - [Custom Fixtures](#custom-fixtures)
+  - [StepRunner — Dual-Channel Observability](#steprunner--dual-channel-observability)
   - [Advanced Actions Helper](#advanced-actions-helper)
   - [Advanced Assertions Helper](#advanced-assertions-helper)
   - [Soft vs Hard Assertions](#soft-vs-hard-assertions)
@@ -57,49 +58,45 @@ Playwright-taf/
 │   │   └── users-endpoints.ts        #   GET/POST functions for JSONPlaceholder API
 │   │
 │   ├── factories/                    # Factory pattern implementations
-│   │   ├── page-factory.ts           #   Centralized page object creation
 │   │   └── helper-factory.ts         #   Centralized helper creation
-│   │
-│   ├── fixtures/                     # Custom Playwright test fixtures
-│   │   ├── pom-eager-fixture.ts      #   Fixture with POMEager + helpers + Winston
-│   │   ├── pom-lazy-fixture.ts       #   Fixture with POMLazy + helpers + Winston
-│   │   ├── test-fixtures.ts          #   Fixture with logger + POMLazy + helpers
-│   │   └── test-helpers-fixture.ts   #   Fixture with helpers only (no POM)
 │   │
 │   ├── mocks/                        # Mock response data
 │   │   └── response-interception.json #  Mock user data for API mocking tests
 │   │
 │   ├── pages/                        # Page Object Models
-│   │   ├── login-page.ts             #   Login page with Winston logging
-│   │   ├── home-page.ts              #   Dashboard page with Winston logging
+│   │   ├── login-page.ts             #   Login page actions and assertions
+│   │   ├── home-page.ts              #   Dashboard page actions and assertions
 │   │   ├── pom-eager.ts              #   Page Object Manager — Eager initialization
 │   │   └── pom-lazy.ts               #   Page Object Manager — Lazy initialization
 │   │
 │   └── utils/                        # Utility classes and helpers
 │       ├── Logger.ts                 #   Winston wrapper (console + file + HTML report)
-│       ├── advanced-actions-helper.ts #   Logged page actions via Winston
-│       ├── advanced-assertions-helper.ts # Logged assertions via Winston
-│       ├── ui-helper.ts              #   Visual regression and LHCI performance checks
+│       ├── step-runner.ts            #   Adapter bridging Winston logs and Playwright test.step()
+│       ├── advanced-actions-helper.ts #   Logged page actions (StepRunner + Winston)
+│       ├── advanced-assertions-helper.ts # Logged assertions (soft/hard modes)
+│       ├── advanced-api-helper.ts    #   Logged HTTP methods for API tests
 │       ├── lighthouse-helper.ts      #   Lighthouse performance auditing
 │       ├── urls.ts                   #   Centralized URL config per environment
 │       └── setup/                    # Global setup/teardown scripts
 │           ├── env-setup.ts          #     Environment detection and data selection
 │           ├── global-setup.ts       #     Pre-suite login and storage state saving
-│           ├── global-teardown.ts    #     Post-suite cleanup
+│           ├── global-teardown.ts    #     Post-suite cleanup and HTML report generation
 │           ├── user-name.setup.ts    #     Setup: update user profile name
 │           └── user-name.teardown.ts #     Teardown: reset user profile name
 │
 ├── tests/                            # Test specifications
+│   ├── fixtures/                     # Custom Playwright test fixtures
+│   │   ├── pom-eager-fixture.ts      #   Fixture: POMEager + Winston lifecycle logging
+│   │   ├── pom-lazy-fixture.ts       #   Fixture: POMLazy + Winston lifecycle logging
+│   │   └── api-test-fixture.ts       #   Fixture: API helpers + automatic request/response logging
+│   │
 │   ├── ui/                           # UI (browser-based) tests
-│   │   ├── fixtures/
-│   │   │   └── login-fixture.ts      #   Custom fixture for login tests
 │   │   └── specs/
-│   │       ├── login-with-fixture.spec.ts          # Login tests (login fixture)
 │   │       ├── login-with-POManagerEager.spec.ts    # Login tests (POMEager)
 │   │       ├── login-with-POManagerLazy.spec.ts     # Login tests (POMLazy)
-│   │       ├── login-test-with-helpers.spec.ts      # Best practice demo
-│   │       ├── login-helpers-log4js.spec.ts         # Winston logging demo tests
-│   │       └── login-with-DD.spec.ts                # Data-driven login tests
+│   │       ├── login-with-helpers.spec.ts            # Best practice and anti-pattern demo
+│   │       ├── login-with-DD.spec.ts                # Data-driven login tests
+│   │       └── login-with-builder.spec.ts           # Builder pattern test data creation
 │   │
 │   └── api/                          # API tests (no browser needed)
 │       └── specs/
@@ -107,8 +104,11 @@ Playwright-taf/
 │           └── network-interception.spec.ts         # Network mocking & interception
 │
 ├── docs/                             # Documentation
-│   ├── winston-logging-guide.md      # Comprehensive Winston usage guide
-│   └── design-patterns-analysis.md   # Design patterns analysis and recommendations
+│   ├── DOCUMENTATION-INDEX.md        # Index and navigation guide for all docs
+│   ├── fixtures-documentation.md     # Comprehensive fixtures guide
+│   ├── design-patterns-analysis.md   # Design patterns analysis and recommendations
+│   ├── logging-guide.md              # Winston & StepRunner logging guide
+│   └── framework-faq.md              # FAQ and quick reference
 │
 ├── test-logs/                        # Generated: Winston log files + HTML report
 │   ├── test-execution.log            #   Rotating log file (10MB max, 5 backups)
@@ -131,8 +131,8 @@ Playwright-taf/
                    │ import
 ┌──────────────────▼──────────────────────────────────────────────────┐
 │                     Custom Fixtures Layer                            │
-│  pom-eager-fixture  │  pom-lazy-fixture  │  login-fixture           │
-│  (Create helpers, POM, and handle setup/teardown per test)          │
+│  pom-eager-fixture  │  pom-lazy-fixture  │  api-test-fixture        │
+│  (Create POM/helpers, log TEST START/PASSED/FAILED per test)        │
 └──────────────────┬──────────────────────────────────────────────────┘
                    │ create
 ┌──────────────────▼──────────────────────────────────────────────────┐
@@ -149,20 +149,18 @@ Playwright-taf/
 ┌──────────────────▼──────────────────────────────────────────────────┐
 │                    Utility Layer                                     │
 │  AdvancedActionsHelper   — Logged goto, click, fill, getText        │
-│  AdvancedAssertionsHelper — Logged toBeVisible, toHaveText, etc.    │
-│  LighthouseHelper        — Performance auditing                     │
-│  UIHelper                — Visual regression testing                │
+│  AdvancedAssertionsHelper — Logged toBeVisible, toHaveText, etc.   │
+│  AdvancedAPIHelper       — Logged HTTP methods for API tests        │
+│  StepRunner              — Bridges helpers to Playwright test.step()│
 │  URLs                    — Environment-based URL resolution          │
-└──────────────────┬──────────────────────────────────────────────────┘
-                   │ logs via
-┌──────────────────▼──────────────────────────────────────────────────┐
-│                   Winston Logging Layer                              │
-│  Logger (src/utils/Logger.ts) — Centralized Winston configuration   │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────────┐    │
-│  │   Console    │  │  File (10MB │  │  HTML Report Collector   │    │
-│  │  (colored)   │  │  rotating)  │  │  (filterable dashboard)  │    │
-│  └─────────────┘  └─────────────┘  └──────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+└──────────┬───────────────────────────────────┬──────────────────────┘
+           │ logs via Winston                  │ registers via
+┌──────────▼──────────────┐       ┌────────────▼─────────────────────┐
+│   Winston Logging Layer  │       │   Playwright HTML Report         │
+│  Console (colored)       │       │   Collapsible test.step() steps  │
+│  File (10MB rotating)    │       │   One entry per action           │
+│  HTML Report Collector   │       └──────────────────────────────────┘
+└─────────────────────────┘
 ```
 
 ---
@@ -204,7 +202,7 @@ npm run api
 npx playwright test --headed
 
 # Run a specific test file
-npx playwright test tests/ui/specs/login-with-fixture.spec.ts
+npx playwright test tests/ui/specs/login-with-POManagerEager.spec.ts
 
 # Run tests with the Playwright UI (interactive mode)
 npx playwright test --ui
@@ -238,53 +236,51 @@ playwright.config.ts is loaded
 
 #### 2. Fixture Setup (Before Each Test)
 ```
-Test runner calls the pom-eager-fixture:
+Test runner calls pom-eager-fixture:
   → Creates a Winston logger named after the test
   → Creates POMEager with the test name
     → POMEager constructor (eager) immediately creates:
-      → LoginPage instance (with its own Winston logger + AdvancedActionsHelper + AdvancedAssertionsHelper)
-      → HomePage instance (with its own logger + helpers)
-    → Each helper gets a Winston logger (e.g., "Actions-testName", "Assertions-testName")
-  → Creates standalone AdvancedActionsHelper (for general actions)
-  → Creates standalone AdvancedAssertionsHelper (for general assertions)
+      → LoginPage instance (with its own AdvancedActionsHelper + AdvancedAssertionsHelper)
+      → HomePage instance (with its own AdvancedActionsHelper + AdvancedAssertionsHelper)
   → Logs "▶ TEST START" via Winston
-  → All are passed to the test via `pomEagerHelpers`
+  → { pomEager, logger } passed to the test via pomEagerFixture
 ```
 
 #### 3. Test Execution (Valid Login Example)
 ```
 Step 1: Navigate to OrangeHRM login page
   → AdvancedActionsHelper.goto() is called
-  → Logs: [ACTION] Step 1: Navigate to OrangeHRM login page
+  → StepRunner.run() wraps the action as a Playwright test.step()
+  → Logs: [INFO] Step 1: Navigate to OrangeHRM login page
   → Playwright navigates to the URL (waits for domcontentloaded)
-  → Logs: [SUCCESS] Step 1: Navigate to OrangeHRM login page (1523ms)
+  → Logs: [INFO] Step 1: Navigate to OrangeHRM login page - SUCCESS (1523ms)
+  → A collapsible step appears in the Playwright HTML report
 
 Step 2: Fill username
   → AdvancedActionsHelper.fill() is called
-  → Logs: [ACTION] Step 2: Enter username
-  → Logs: [DATA] Input value: "Admin"
+  → StepRunner.run() registers the step in the HTML report
+  → Logs: [INFO] Step 2: Enter username
+  → Logs: [DEBUG] Input value: "Admin"
   → Playwright fills the input field
-  → Logs: [SUCCESS] Step 2: Enter username (45ms)
+  → Logs: [INFO] Step 2: Enter username - SUCCESS (45ms)
 
 Step 3: Fill password
   → AdvancedActionsHelper.fill() is called with isSensitive=true
-  → Logs: [ACTION] Step 3: Enter password
-  → Logs: [DATA] Input value: ***MASKED***    ← Password hidden in logs!
+  → Logs: [INFO] Step 3: Enter password
+  → Logs: [DEBUG] Input value: ***MASKED***    ← Password hidden in logs!
   → Playwright fills the password field
-  → Logs: [SUCCESS] Step 3: Enter password (38ms)
 
 Step 4: Click login button
   → AdvancedActionsHelper.click() is called
-  → Logs: [DATA] Element state - Visible: true, Enabled: true
+  → Logs: [DEBUG] Element state - Visible: true, Enabled: true
   → Playwright clicks the button
-  → Logs: [SUCCESS] Step 4: Click login button (892ms)
 
 Step 5: Assert profile icon is visible
   → AdvancedAssertionsHelper.toBeVisible() is called
   → handleAssertion() wraps the Playwright expect() call
-  → Logs: [ASSERTION] Assertion #1 [HARD]: Verify profile icon is visible
+  → Logs: [INFO] Assertion #1 [HARD]: Verify profile icon is visible
   → Playwright's expect(locator).toBeVisible() runs
-  → Logs: [PASSED] Assertion #1: Verify profile icon is visible (234ms)
+  → Logs: [INFO] Assertion #1: Verify profile icon is visible - PASSED (234ms)
 ```
 
 #### 4. Fixture Teardown (After Each Test)
@@ -293,7 +289,7 @@ Step 5: Assert profile icon is visible
   → All log entries written to test-logs/test-execution.log (10MB rotating)
   → Colored output written to console
   → Log entries collected for HTML report generation
-  → If test failed: screenshots already captured during failure
+  → If test failed: error message logged; screenshots captured during failure
   → Playwright captures trace (retain-on-failure) and screenshots
 ```
 
@@ -303,6 +299,7 @@ Step 5: Assert profile icon is visible
   → Allure data generated in allure-results/
   → Screenshots attached to the report
   → Traces available for debugging failed tests
+  → Winston HTML report generated in test-logs/test-report.html
 ```
 
 ### API Test Flow
@@ -310,23 +307,23 @@ Step 5: Assert profile icon is visible
 Taking `users-test.spec.ts` as an example:
 
 ```
-1. Test uses Playwright's built-in `request` fixture (no browser launched)
-2. The request fixture creates an HTTP client with baseURL from config
+1. Test uses api-test-fixture (no browser launched — request context only)
+2. HelperFactory.createAPIHelpers() creates AdvancedAPIHelper + AdvancedAssertionsHelper
+3. Fixture logs "▶ API TEST START"
 
 Test: "Check get users response success response"
-  → usersRequest.getUsers(request) called
+  → apiActions.get('https://jsonplaceholder.typicode.com/posts', 'Fetch all posts')
+    → Logs: [INFO] 🌐 API GET: Fetch all posts
     → Sends GET /posts to jsonplaceholder.typicode.com
-    → Returns the full HTTP response object
+    → Logs: [INFO] ✓ Response: 200 OK
   → Response parsed as JSON
-  → expect(response.status()).toBe(200)      ← Verify HTTP status
-  → expect(jsonResponse.length).toBe(100)    ← Verify array has 100 items
+  → assert.toEqual(response.status(), 200, 'Verify status is 200')
+  → assert.toEqual(jsonResponse.length, 100, 'Verify 100 posts returned')
 
-Test: "Check post user response status code and body"
-  → usersRequest.createUser(request) called
-    → Sends POST /posts with body { title: "foo", body: "bar", userId: 102 }
-    → Returns the response
-  → Response parsed as JSON
-  → expect(jsonResponse.id).toEqual(101)     ← JSONPlaceholder always returns id: 101
+Teardown:
+  → Logs "✅ API TEST PASSED"
+  → Logs: Total API Requests: 1
+  → Logs: Total Assertions: 2 (Passed: 2, Failed: 0)
 ```
 
 ### Network Interception Test Flow
@@ -410,7 +407,7 @@ The framework provides two POM management strategies:
 | When pages are created | Immediately in constructor | On first access |
 | Memory usage | All pages allocated upfront | Only used pages allocated |
 | Complexity | Simpler (no null checks) | Slightly more complex |
-| Best for | Small page sets | Large page sets |
+| Best for | Multi-page flows | 1–2 page tests |
 
 ```typescript
 // Eager: all pages created immediately
@@ -427,22 +424,41 @@ pom.loginPage;  // Returns cached instance (not recreated)
 
 ### Custom Fixtures
 
-Fixtures are Playwright's dependency injection mechanism. This framework provides three fixture levels:
+Fixtures are Playwright's dependency injection mechanism. This framework provides three fixtures in `tests/fixtures/`:
 
-| Fixture | What It Provides | Use Case |
-|---------|-----------------|----------|
-| `test-fixtures` | logger + POMLazy + actions + assert | Recommended: Winston-first tests |
-| `pom-eager-fixture` | POMEager + actions + assert + Winston lifecycle | Standard UI tests |
-| `pom-lazy-fixture` | POMLazy + actions + assert + Winston lifecycle | Memory-efficient tests |
-| `test-helpers-fixture` | actions + assert + Winston lifecycle | Tests without POM |
-| `login-fixture` | POMEager (pre-navigated) + loginPage + actions + assert | Login-specific tests |
+| Fixture | Key | What It Provides | Use Case |
+|---------|-----|-----------------|----------|
+| `pom-eager-fixture` | `pomEagerFixture` | `{ pomEager, logger }` + lifecycle logging | Multi-page UI tests |
+| `pom-lazy-fixture` | `pomLazyFixture` | `{ pomLazy, logger }` + lifecycle logging | Single/few-page UI tests |
+| `api-test-fixture` | `apiTestFixture` | `{ apiActions, assert }` + request/response logging | API tests |
+
+Helpers (`AdvancedActionsHelper`, `AdvancedAssertionsHelper`) live **inside page objects**, not at the fixture level. Fixtures provide the POM manager; page objects own their helpers.
+
+### StepRunner — Dual-Channel Observability
+
+`StepRunner` (`src/utils/step-runner.ts`) is a thin static adapter that wraps `test.step()`:
+
+```typescript
+export class StepRunner {
+    static async run<T>(title: string, fn: () => Promise<T>): Promise<T> {
+        return await test.step(title, async () => fn());
+    }
+}
+```
+
+Every action in `AdvancedActionsHelper` calls `StepRunner.run(logMessage, ...)`, which means each action simultaneously:
+
+1. **Logs to Winston** — Console (colored) + rotating file + HTML report collector
+2. **Registers a `test.step()`** — Creates a collapsible step in the Playwright HTML report
+
+This dual-channel approach gives both persistent log files and interactive test report steps from a single action call, with no extra boilerplate in tests or page objects.
 
 ### Advanced Actions Helper
 
 Wraps common Playwright actions (`goto`, `click`, `fill`, `getText`, `waitForVisible`) with:
 
 - **Sequential step numbering** — `Step 1`, `Step 2`, etc.
-- **Winston logging** — Console (colored) + rotating file + HTML report collector
+- **Dual-channel logging** — Winston (file/console/HTML) + Playwright `test.step()` via StepRunner
 - **Performance timing** — Duration of each action in milliseconds
 - **Sensitive data masking** — Passwords logged as `***MASKED***`
 - **Screenshot on failure** — Full-page screenshot captured automatically
@@ -450,13 +466,13 @@ Wraps common Playwright actions (`goto`, `click`, `fill`, `getText`, `waitForVis
 Example log output (console, colored):
 
 ```text
-2025-01-15 10:30:45.123 [INFO] [Actions-valid_login] - Step 1: Navigate to OrangeHRM login page
-2025-01-15 10:30:46.456 [INFO] [Actions-valid_login] - Step 1: Navigate to OrangeHRM login page - SUCCESS (1333ms)
-2025-01-15 10:30:46.460 [INFO] [Actions-valid_login] - Step 2: Enter username
-2025-01-15 10:30:46.462 [DEBUG] [Actions-valid_login] - Input value: "Admin"
-2025-01-15 10:30:46.510 [INFO] [Actions-valid_login] - Step 2: Enter username - SUCCESS (50ms)
-2025-01-15 10:30:46.515 [INFO] [Actions-valid_login] - Step 3: Enter password
-2025-01-15 10:30:46.516 [DEBUG] [Actions-valid_login] - Input value: ***MASKED***
+2026-01-15 10:30:45.123 [INFO] [Actions-valid_login] - Step 1: Navigate to OrangeHRM login page
+2026-01-15 10:30:46.456 [INFO] [Actions-valid_login] - Step 1: Navigate to OrangeHRM login page - SUCCESS (1333ms)
+2026-01-15 10:30:46.460 [INFO] [Actions-valid_login] - Step 2: Enter username
+2026-01-15 10:30:46.462 [DEBUG] [Actions-valid_login] - Input value: "Admin"
+2026-01-15 10:30:46.510 [INFO] [Actions-valid_login] - Step 2: Enter username - SUCCESS (50ms)
+2026-01-15 10:30:46.515 [INFO] [Actions-valid_login] - Step 3: Enter password
+2026-01-15 10:30:46.516 [DEBUG] [Actions-valid_login] - Input value: ***MASKED***
 ```
 
 ### Advanced Assertions Helper
@@ -496,14 +512,14 @@ Soft assertions are ideal for verifying multiple elements on a page without stop
 
 ### Logging with Winston
 
-All logging across the framework is handled by [Winston](https://github.com/winstonjs/winston) via the centralized `Logger` utility (`src/utils/Logger.ts`). This replaces the previous manual `console.log` + `fs.appendFileSync` approach.
+All logging across the framework is handled by [Winston](https://github.com/winstonjs/winston) via the centralized `Logger` utility (`src/utils/Logger.ts`).
 
 **Three output channels** (configured automatically):
 
 | Channel | Description |
 |---------|-------------|
 | **Console** | Colored, timestamped output with log level and category |
-| **File** | Rotating log file (`test-logs/test-execution.log`) - 10MB max, 5 backups |
+| **File** | Rotating log file (`test-logs/test-execution.log`) — 10MB max, 5 backups |
 | **HTML Report** | Interactive dashboard (`test-logs/test-report.html`) with level/category filtering |
 
 **Log levels** (configurable via `LOG_LEVEL` env variable, default: `debug`):
@@ -531,7 +547,7 @@ this.logger.error("Login failed");
 
 **IMPORTANT**: Ensure `Logger.shutdown()` is called in `globalTeardown` to flush all logs before the process exits.
 
-For the full integration guide, see [docs/winston-logging-guide.md](docs/winston-logging-guide.md).
+For the full integration guide, see [docs/logging-guide.md](docs/logging-guide.md).
 
 ### Network Interception & Mocking
 
@@ -549,9 +565,9 @@ Playwright provides four network manipulation strategies demonstrated in this fr
 
 ## Design Patterns
 
-This framework implements enterprise-grade design patterns for maintainability, scalability, and code quality. **Phase 1 patterns** (Builder + Factory) are now fully implemented.
+This framework implements enterprise-grade design patterns for maintainability, scalability, and code quality.
 
-### 🏗️ Builder Pattern
+### Builder Pattern
 
 **Purpose:** Fluent API for creating complex test data objects
 
@@ -559,10 +575,10 @@ This framework implements enterprise-grade design patterns for maintainability, 
 
 **Benefits:**
 
-- ✅ Readable, expressive test data creation
-- ✅ Preset configurations (asValidAdmin, asInvalidPassword, etc.)
-- ✅ Build-time validation
-- ✅ Default values for optional fields
+- Readable, expressive test data creation
+- Preset configurations (`asValidAdmin`, `asInvalidPassword`, etc.)
+- Build-time validation
+- Default values for optional fields
 
 **Example Usage:**
 
@@ -592,71 +608,54 @@ invalidUsers.forEach(user => {
 
 **See also:** `tests/ui/specs/login-with-builder.spec.ts` for complete examples
 
-### 🏭 Factory Pattern
+### Factory Pattern
 
-**Purpose:** Centralize object creation (page objects and helpers)
+**Purpose:** Centralize helper object creation
 
-**Implementation:**
-- `src/factories/page-factory.ts` - Page object creation
-- `src/factories/helper-factory.ts` - Helper creation
+**Implementation:** `src/factories/helper-factory.ts`
 
 **Benefits:**
 
-- ✅ Single source of truth for instantiation
-- ✅ Consistent constructor parameters
-- ✅ Reduces duplication in fixtures
-- ✅ Easy to add pre/post-creation hooks
+- Single source of truth for instantiation
+- Consistent constructor parameters
+- Reduces duplication in fixtures
+- Easy to add pre/post-creation hooks
 
 **Example Usage:**
 
 ```typescript
-import { PageFactory } from '../src/factories/page-factory';
 import { HelperFactory } from '../src/factories/helper-factory';
 
-// Create individual page objects
-const loginPage = PageFactory.createLoginPage(page, 'My Test');
-const homePage = PageFactory.createHomePage(page, 'My Test');
-
-// Create all pages at once
-const { loginPage, homePage } = PageFactory.createAllPages(page, 'My Test');
-
-// Create helpers
+// Create UI helpers (actions + assertions)
 const { actions, assert } = HelperFactory.createHelpers(page, 'My Test');
 
-// Generic factory for custom pages
-const customPage = PageFactory.createPage(CustomPage, page, 'My Test');
+// Create API helpers (apiActions + assert with screenshots disabled)
+const { apiActions, assert } = HelperFactory.createAPIHelpers(request, page, 'My Test');
 ```
 
-**Integrated in Fixtures:**
+### More Patterns
 
-The `pom-eager-fixture.ts` now uses HelperFactory:
-
-```typescript
-const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-```
-
-### 📚 More Patterns
-
-For a comprehensive analysis of all **10 currently implemented patterns** and **8 recommended patterns**, see [docs/design-patterns-analysis.md](docs/design-patterns-analysis.md).
+For a comprehensive analysis of all **11 currently implemented patterns** and recommended patterns, see [docs/design-patterns-analysis.md](docs/design-patterns-analysis.md).
 
 **Currently Implemented:**
 
-1. ✅ Page Object Model (POM)
-2. ✅ Manager Pattern (Eager/Lazy)
-3. ✅ Fixture Pattern
-4. ✅ Helper/Wrapper Pattern
-5. ✅ Centralized Logging
-6. ✅ Endpoint Abstraction
-7. ✅ Data-Driven Testing
-8. ✅ Network Interception
-9. ✅ **Builder Pattern** (Phase 1 - NEW)
-10. ✅ **Factory Pattern** (Phase 1 - NEW)
+1. Page Object Model (POM)
+2. Manager Pattern (Eager/Lazy)
+3. Fixture Pattern (Dependency Injection)
+4. Helper/Wrapper Pattern
+5. Adapter Pattern — StepRunner (`test.step()` integration)
+6. Factory Pattern — `HelperFactory`
+7. Centralized Logging (Winston + multi-transport)
+8. Endpoint Abstraction
+9. Data-Driven Testing
+10. Network Interception
+11. Builder Pattern — `UserBuilder`
 
 **Recommended Next:**
 
-- 🎯 Repository Pattern (Phase 2) - Centralized data management
-- 🎯 Strategy Pattern (Phase 3) - Browser-specific behaviors
-- 🎯 Decorator Pattern (Phase 3) - Flexible action enhancement
+- Repository Pattern (Phase 2) — Centralized data management
+- Strategy Pattern (Phase 3) — Browser-specific behaviors
+- Decorator Pattern (Phase 3) — Flexible action enhancement
 
 ---
 
@@ -743,5 +742,4 @@ The framework generates multiple report types:
 | Workers | 1 (local) / 2 (CI) | Parallel execution |
 | Screenshots | Always captured | Attached to reports |
 | Traces | Retained on failure | For debugging with trace viewer |
-| Visual diff | 0 max diff pixels | Pixel-perfect comparison |
 | Browser | Chromium (1280x920) | Firefox and WebKit available |

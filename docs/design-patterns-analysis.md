@@ -1,8 +1,8 @@
 # Design Patterns Analysis & Recommendations
 
 **Playwright Test Automation Framework**
-**Analysis Date:** 2026-02-15
-**Version:** Current (pw-log4js branch)
+**Analysis Date:** 2026-02-23
+**Version:** Current (pw-winston branch)
 
 ---
 
@@ -21,14 +21,14 @@
 This document provides a comprehensive analysis of design patterns used in the Playwright test automation framework and recommends additional patterns to enhance maintainability, scalability, and code quality.
 
 **Current State:**
-- ✅ **10 major design patterns** already implemented
+- ✅ **11 major design patterns** already implemented
 - ✅ Strong separation of concerns across layers
-- ✅ Enterprise-grade logging and reporting
-- ✅ Flexible fixture composition
-- ✅ Comprehensive helper abstractions
+- ✅ Enterprise-grade dual-channel logging (Winston file/HTML + Playwright test.step HTML report)
+- ✅ Flexible fixture composition (3 focused fixtures)
+- ✅ Comprehensive helper abstractions with step tracking
 
 **Recommendations:**
-- 🎯 **8 additional patterns** to consider
+- 🎯 **7 additional patterns** to consider
 - 🎯 Focus areas: Test data management, error handling, scalability
 - 🎯 Priority: High-impact, low-effort improvements first
 
@@ -44,7 +44,7 @@ This document provides a comprehensive analysis of design patterns used in the P
 ```typescript
 // src/pages/login-page.ts
 export class LoginPage {
-    private readonly logger: Log4jsLogger;
+    private readonly logger: winston.Logger;
     readonly actions: AdvancedActionsHelper;
     readonly assert: AdvancedAssertionsHelper;
 
@@ -53,7 +53,7 @@ export class LoginPage {
     readonly passwordInput: Locator;
     readonly loginButton: Locator;
 
-    // Public interface methods
+    // Public interface methods — tests call these, never locators
     async login(username: string, password: string, isPasswordSensitive = true) {
         await this.actions.fill(this.usernameInput, username, 'Enter username');
         await this.actions.fill(this.passwordInput, password, 'Enter password', isPasswordSensitive);
@@ -69,7 +69,6 @@ export class LoginPage {
 **Files:**
 - `src/pages/login-page.ts`
 - `src/pages/home-page.ts`
-- `src/pages/login-page-log4js.ts`
 
 **Benefits:**
 - ✅ Tests don't access locators directly
@@ -79,7 +78,7 @@ export class LoginPage {
 
 ---
 
-### 2. Manager Pattern (POM Manager) - Lazy & Eager Variants ✅
+### 2. Manager Pattern (POM Manager) — Lazy & Eager Variants ✅
 
 **Purpose:** Centralized management of multiple page objects with different initialization strategies
 
@@ -90,9 +89,9 @@ export class POMEager {
     private readonly loginPage: LoginPage;
     private readonly homePage: HomePage;
 
-    constructor(page: Page, testName: string) {
+    constructor(page: Page, testName: string = "") {
         this.logger.info("Initializing all page objects eagerly");
-        // All pages created immediately
+        // All pages created immediately in constructor
         this.loginPage = new LoginPage(page, testName);
         this.homePage = new HomePage(page, testName);
     }
@@ -106,13 +105,13 @@ export class POMEager {
 ```typescript
 // src/pages/pom-lazy.ts
 export class POMLazy {
-    private _loginPage?: LoginPage4js;
+    private _loginPage?: LoginPage;
     private _homePage?: HomePage;
 
-    // Lazy initialization with caching
-    get loginPage(): LoginPage4js {
+    // Lazy getter: creates on first access, caches for subsequent calls
+    get loginPage(): LoginPage {
         if (!this._loginPage) {
-            this._loginPage = new LoginPage4js(this.page, this._testName);
+            this._loginPage = new LoginPage(this.page, this._testName ?? "");
         }
         return this._loginPage;
     }
@@ -126,89 +125,84 @@ export class POMLazy {
 | Memory | Higher (all pages loaded) | Lower (only used pages) |
 | Performance | Upfront cost | On-demand cost |
 | Code Complexity | Simpler | Requires null checks |
-| Error Detection | Immediate | Delayed until access |
+| Error Detection | Immediate (constructor) | Delayed until first access |
 | Best For | Tests using most pages | Tests using few pages |
 
 ---
 
 ### 3. Fixture Pattern (Dependency Injection) ✅
 
-**Purpose:** Automatic test setup/teardown and dependency injection
+**Purpose:** Automatic test setup/teardown with injected dependencies
 
 **Implementation:**
 ```typescript
-// src/fixtures/pom-eager-fixture.ts
-export const test = base.extend<{ pomEagerHelpers: POMEagerHelpers }>({
-    pomEagerHelpers: async ({ page }, use, testInfo) => {
-        const logger = Logger.getLogger(`Fixture-POMEager-${testInfo.title}`);
+// tests/fixtures/pom-eager-fixture.ts
+export const test = base.extend<{ pomEagerFixture: POMEagerFixture }>({
+    pomEagerFixture: async ({ page }, use, testInfo) => {
+        const logger = Logger.getLogger(`Fixture-POMEager-${testInfo.title.replace(/\s+/g, '_')}`);
+        const pomEager = new POMEager(page, testInfo.title);
 
         // ✅ Setup Phase
         logger.info(`▶ TEST START: "${testInfo.title}"`);
-        const pomEager = new POMEager(page, testInfo.title);
-        const actions = new AdvancedActionsHelper(page, testInfo.title);
-        const assert = new AdvancedAssertionsHelper(page, testInfo.title);
 
         // ✅ Test Execution
-        await use({ pomEager, actions, assert });
+        await use({ pomEager, logger });
 
         // ✅ Teardown Phase
         if (testInfo.status === 'passed') {
             logger.info(`✅ TEST PASSED: "${testInfo.title}" (${testInfo.duration}ms)`);
         } else if (testInfo.status === 'failed') {
-            logger.error(`❌ TEST FAILED: "${testInfo.title}"`);
+            logger.error(`❌ TEST FAILED: "${testInfo.title}" (${testInfo.duration}ms)`);
+            if (testInfo.error) logger.error(`   Error: ${testInfo.error.message}`);
+        } else if (testInfo.status === 'skipped') {
+            logger.warn(`⏭ TEST SKIPPED: "${testInfo.title}"`);
         }
     }
 });
 ```
 
 **Fixture Variants:**
-- `pom-eager-fixture.ts` - Full suite with eager initialization
-- `pom-lazy-fixture.ts` - Full suite with lazy initialization
-- `test-helpers-fixture.ts` - Helpers only (no POM)
-- `test-fixtures.ts` - Combined logger + POMLazy + helpers
+- `pom-eager-fixture.ts` — Eager initialization, exposes `{ pomEager, logger }`
+- `pom-lazy-fixture.ts` — Lazy initialization, exposes `{ pomLazy, logger }`
+- `api-test-fixture.ts` — API helpers via HelperFactory, exposes `{ apiActions, assert }`
 
 **Benefits:**
-- ✅ No beforeEach/afterEach needed in tests
-- ✅ Automatic lifecycle management
+- ✅ No `beforeEach`/`afterEach` boilerplate needed in test files
+- ✅ Automatic lifecycle logging (START, PASSED, FAILED, SKIPPED)
 - ✅ Composable fixtures
-- ✅ Consistent logging across tests
+- ✅ Consistent logging across all tests
 
 ---
 
-### 4. Helper/Wrapper Pattern ✅
+### 4. Helper / Wrapper Pattern ✅
 
-**Purpose:** Wrap Playwright native methods with logging, error handling, and metrics
+**Purpose:** Wrap Playwright native methods with logging, step tracking, and failure diagnostics
 
 **AdvancedActionsHelper Implementation:**
 ```typescript
 // src/utils/advanced-actions-helper.ts
 export class AdvancedActionsHelper {
-    private stepNumber = 0;
-    private actionCounts = { clicks: 0, fills: 0, navigations: 0, ... };
+    private stepCounter: number = 0;
 
-    async click(locator: Locator, description: string) {
-        this.stepNumber++;
-        const startTime = Date.now();
+    async click(locator: Locator, description?: string) {
+        this.stepCounter++;
+        const step = `Step ${this.stepCounter}`;
+        const logMessage = description || 'Click element';
 
-        try {
-            this.logger.info(`Step ${this.stepNumber}: ${description}`);
-            await locator.click();
-            this.actionCounts.clicks++;
-
-            const duration = Date.now() - startTime;
-            this.logger.debug(`✓ Completed in ${duration}ms`);
-        } catch (error) {
-            this.logger.error(`✗ Failed: ${error.message}`);
-            await this.captureFailureScreenshot(description);
-            throw error;
-        }
-    }
-
-    getSummary() {
-        return {
-            totalSteps: this.stepNumber,
-            ...this.actionCounts
-        };
+        // Delegates to StepRunner for Playwright HTML report step
+        await StepRunner.run(logMessage, async () => {
+            const startTime = Date.now();
+            try {
+                const isVisible = await locator.isVisible();
+                this.logger.debug(`Element state - Visible: ${isVisible}`);
+                await locator.click();
+                this.logger.info(`${step}: ${logMessage} - SUCCESS (${Date.now() - startTime}ms)`);
+            } catch (error) {
+                this.logger.error(`${step}: ${logMessage} - FAILED - Error: ${error}`);
+                await this.captureFailureScreenshot(logMessage);
+                throw error;
+            }
+        });
     }
 }
 ```
@@ -217,39 +211,25 @@ export class AdvancedActionsHelper {
 ```typescript
 // src/utils/advanced-assertions-helper.ts
 export class AdvancedAssertionsHelper {
-    private softAssertions: Array<{ description: string; error: Error }> = [];
-    private assertionStats = { passed: 0, failed: 0, total: 0 };
+    private assertionCounter: number = 0;
+    private softAssertionErrors: Array<{ assertionNumber: number; description: string; error: Error }> = [];
 
-    async toBeVisible(locator: Locator, description?: string, soft = false) {
-        await this.handleAssertion(description || 'Assert visible', async () => {
-            await expect(locator).toBeVisible();
-        }, soft);
-    }
+    private async handleAssertion(description: string, assertionFn: () => Promise<void>, soft = false) {
+        this.assertionCounter++;
+        this.logger.info(`Assertion #${this.assertionCounter} [${soft ? 'SOFT' : 'HARD'}]: ${description}`);
 
-    private async handleAssertion(description: string, assertionFn: () => Promise<void>, soft: boolean) {
-        this.assertionStats.total++;
         try {
-            this.logger.info(`Assertion: ${description}`);
             await assertionFn();
-            this.assertionStats.passed++;
-            this.logger.info(`✓ PASSED`);
+            this.logger.info(`Assertion #${this.assertionCounter}: ${description} - PASSED`);
         } catch (error) {
-            this.assertionStats.failed++;
+            await this.captureFailureScreenshot(description);
             if (soft) {
-                this.softAssertions.push({ description, error });
-                this.logger.warn(`⚠ SOFT_FAIL: ${description}`);
+                this.logger.warn(`Assertion #${this.assertionCounter}: ${description} - SOFT_FAIL`);
+                this.softAssertionErrors.push({ assertionNumber: this.assertionCounter, description, error: error as Error });
             } else {
-                this.logger.error(`✗ FAILED: ${description}`);
+                this.logger.error(`Assertion #${this.assertionCounter}: ${description} - FAILED`);
                 throw error;
             }
-        }
-    }
-
-    async assertAllSoftAssertions() {
-        if (this.softAssertions.length > 0) {
-            const errors = this.softAssertions.map(a => `- ${a.description}: ${a.error.message}`).join('\n');
-            this.logger.error(`${this.softAssertions.length} soft assertions failed:\n${errors}`);
-            throw new Error(`${this.softAssertions.length} soft assertions failed`);
         }
     }
 }
@@ -260,163 +240,245 @@ export class AdvancedAssertionsHelper {
 - `src/utils/advanced-assertions-helper.ts`
 
 **Benefits:**
-- ✅ Automatic logging for every action
-- ✅ Performance metrics
-- ✅ Screenshot on failure
-- ✅ Sensitive data masking
-- ✅ Soft assertion support
-- ✅ Summary statistics
+- ✅ Automatic Winston logging for every action and assertion
+- ✅ Automatic Playwright `test.step()` integration via StepRunner (see Pattern #5)
+- ✅ Performance timing (ms per action)
+- ✅ Screenshot on failure (configurable — disabled for API tests)
+- ✅ Sensitive data masking (`fill()` with `isSensitive: true`)
+- ✅ Soft assertion support with full error collection
 
 ---
 
-### 5. Centralized Logging Pattern (Facade + Multi-Appender) ✅
+### 5. Adapter Pattern (StepRunner) ✅
 
-**Purpose:** Unified logging with multiple output channels
+**Purpose:** Bridge between Winston logging and Playwright's native `test.step()` system, providing dual-channel observability
+
+**Implementation:**
+```typescript
+// src/utils/step-runner.ts
+import { test } from '@playwright/test';
+
+export class StepRunner {
+    static async run<T>(title: string, fn: () => Promise<T>): Promise<T> {
+        return await test.step(title, async () => {
+            return await fn();
+        });
+    }
+}
+```
+
+**How It Integrates with AdvancedActionsHelper:**
+```typescript
+// Every action in AdvancedActionsHelper wraps its logic in StepRunner.run()
+async goto(url: string, description?: string) {
+    this.stepCounter++;
+    const logMessage = description || `Navigate to ${url}`;
+
+    await StepRunner.run(logMessage, async () => {       // → Playwright HTML report step
+        try {
+            await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+            this.logger.info(`Step ${this.stepCounter}: ${logMessage} - SUCCESS`);  // → Winston log
+        } catch (error) {
+            this.logger.error(`Step ${this.stepCounter}: ${logMessage} - FAILED`);  // → Winston log
+            throw error;
+        }
+    });
+}
+```
+
+**Dual-Channel Observability:**
+
+```
+Each helper action produces output on TWO independent channels:
+
+StepRunner.run("Click login button", ...)
+    │
+    ├── → Playwright HTML Report (test.step)
+    │       • Collapsible step in test timeline
+    │       • Duration badge
+    │       • Shows inside each test in the report UI
+    │
+    └── → Winston Logs
+            • Console (colored, timestamped)
+            • test-logs/test-execution.log (rotating file)
+            • test-logs/test-report.html (filterable HTML dashboard)
+```
+
+**Separation of Concerns:**
+
+| Concern | Handled By |
+|---------|-----------|
+| Step title for Playwright report | `StepRunner.run(description, ...)` |
+| Step numbering in log files | `Step ${this.stepCounter}:` prefix in Winston |
+| Timing & duration | Winston: `Date.now()` delta |
+| Failure screenshots | `captureFailureScreenshot()` in helpers |
+| Test pass/fail status | Fixture teardown via `testInfo.status` |
+
+**Why This Pattern:**
+- `test.step()` only works within a Playwright test context — StepRunner encapsulates this requirement
+- `AdvancedActionsHelper` doesn't need to know about `test.step()` internals; it delegates via `StepRunner.run()`
+- Adding or removing Playwright step integration requires changing only `StepRunner`, not every helper method
+
+**Benefits:**
+- ✅ Every action appears as a collapsible step in Playwright's HTML report
+- ✅ Actions simultaneously logged to Winston file/HTML channels
+- ✅ Single point to change step wrapping behaviour
+- ✅ Works generically for any async function (`run<T>`)
+
+---
+
+### 6. Factory Pattern ✅
+
+**Purpose:** Centralize object creation logic with consistent configuration
+
+**HelperFactory Implementation:**
+```typescript
+// src/factories/helper-factory.ts
+export class HelperFactory {
+    // Create UI test helpers
+    static createHelpers(page: Page, testName: string): HelperSet {
+        return {
+            actions: new AdvancedActionsHelper(page, testName),
+            assert: new AdvancedAssertionsHelper(page, testName)
+        };
+    }
+
+    // Create API test helpers — note screenshots disabled automatically
+    static createAPIHelpers(request: APIRequestContext, page: Page, testName: string): APIHelperSet {
+        return {
+            apiActions: new AdvancedAPIHelper(request, testName),
+            assert: new AdvancedAssertionsHelper(page, testName, false)  // screenshots disabled
+        };
+    }
+
+    // Individual factory methods
+    static createActionsHelper(page: Page, testName: string): AdvancedActionsHelper { ... }
+    static createAssertionsHelper(page: Page, testName: string, enableScreenshots = true): AdvancedAssertionsHelper { ... }
+    static createAPIHelper(request: APIRequestContext, testName: string): AdvancedAPIHelper { ... }
+}
+```
+
+**Exported Types:**
+```typescript
+export interface HelperSet {
+    actions: AdvancedActionsHelper;
+    assert: AdvancedAssertionsHelper;
+}
+
+export interface APIHelperSet {
+    apiActions: AdvancedAPIHelper;
+    assert: AdvancedAssertionsHelper;
+}
+```
+
+**Usage (api-test-fixture.ts):**
+```typescript
+const { apiActions, assert } = HelperFactory.createAPIHelpers(request, page, testInfo.title);
+```
+
+**Benefits:**
+- ✅ Centralized instantiation — if constructor signatures change, only the factory needs updating
+- ✅ Automatic logging of object creation (debug level)
+- ✅ Correctly configures API vs UI contexts (screenshot flag)
+- ✅ Consistent helper creation across all fixtures
+
+**Files:**
+- ✅ `src/factories/helper-factory.ts`
+
+---
+
+### 7. Centralized Logging Pattern (Winston + Multi-Transport) ✅
+
+**Purpose:** Unified logging with multiple output channels from a single static factory
 
 **Implementation:**
 ```typescript
 // src/utils/Logger.ts
 export class Logger {
-    private static loggers: Map<string, Log4jsLogger> = new Map();
-    private static htmlCollector: LogEntry[] = [];
+    private static loggers: Map<string, winston.Logger> = new Map();
 
-    static getLogger(category: string): Log4jsLogger {
-        if (!this.loggers.has(category)) {
-            log4js.configure({
-                appenders: {
-                    console: { type: 'console', layout: { type: 'colored' } },
-                    file: {
-                        type: 'dateFile',
-                        filename: 'test-logs/test.log',
-                        pattern: '-yyyy-MM-dd',
-                        compress: true
-                    },
-                    htmlCollector: { type: { appender: this.collectLogs } }
-                },
-                categories: {
-                    default: {
-                        appenders: ['console', 'file', 'htmlCollector'],
-                        level: process.env.LOG_LEVEL || 'debug'
-                    }
-                }
-            });
-            this.loggers.set(category, log4js.getLogger(category));
-        }
-        return this.loggers.get(category)!;
+    static getLogger(category: string): winston.Logger {
+        if (this.loggers.has(category)) return this.loggers.get(category)!;
+
+        const logger = winston.createLogger({
+            level: process.env.LOG_LEVEL || "debug",
+            transports: [
+                new winston.transports.Console({ format: /* colored */ }),
+                new winston.transports.File({ filename: 'test-logs/test-execution.log', maxsize: 10MB }),
+                new HtmlCollectorTransport(category)   // In-memory for HTML report
+            ]
+        });
+
+        this.loggers.set(category, logger);
+        return logger;
     }
 
-    static generateHtmlReport() {
-        // Generates interactive HTML dashboard with:
-        // - Statistics cards (total, debug, info, warn, error, fatal counts)
-        // - Filterable table (by level, category, search text)
-        // - Responsive design with color-coded severity
-    }
+    static generateHtmlReport(title?: string): void { ... }
+    static async shutdown(): Promise<void> { ... }
 }
 ```
 
 **Output Channels:**
-1. **Console** - Colored real-time logs
-2. **File** - Rolling daily logs (`test-logs/test-YYYY-MM-DD.log`)
-3. **HTML** - Interactive report (`test-logs/test-report.html`)
-
-**Log Levels:**
-- `TRACE` - Finest-grained debugging
-- `DEBUG` - Detailed data (response bodies, headers)
-- `INFO` - Test flow steps
-- `WARN` - Soft assertion failures
-- `ERROR` - Hard assertion failures
-- `FATAL` - Critical errors
-
-**Category Naming Convention:**
-- Page Objects: `PageName-testName` (e.g., `LoginPage-ValidLogin`)
-- Helpers: `Actions-testName` or `Assertions-testName`
-- Fixtures: `Fixture-Type-testName`
-- Tests: `suite-name` (e.g., `users-api-test`)
+1. **Console** — Colored real-time logs with timestamp and category
+2. **File** — Rolling daily logs (`test-logs/test-execution.log`, 10MB max, 5 backups)
+3. **HTML** — Interactive searchable dashboard (`test-logs/test-report.html`)
 
 **Benefits:**
-- ✅ Single logger interface, multiple outputs
-- ✅ Environment-configurable log level
-- ✅ HTML report with filtering and search
-- ✅ Daily log rotation
-- ✅ Sensitive data masking
+- ✅ Single logger interface, three outputs
+- ✅ Environment-configurable log level (`LOG_LEVEL=warn npx playwright test`)
+- ✅ HTML report with category filtering and text search
+- ✅ File rotation (10MB, 5 backups)
+- ✅ Loggers cached by category (no duplicate transport registration)
 
 ---
 
-### 6. Endpoint Abstraction Pattern ✅
+### 8. Endpoint Abstraction Pattern ✅
 
-**Purpose:** Centralize API request logic, separate from tests
+**Purpose:** Centralize API request definitions, separate from test logic
 
 **Implementation:**
 ```typescript
 // src/endpoints/users-endpoints.ts
 const baseURL = 'https://jsonplaceholder.typicode.com';
 const usersEndpoint = `${baseURL}/posts`;
-const userParam = { id: '2' };
-const requestBody = {
-    title: 'foo',
-    body: 'bar',
-    userId: 1
-};
 
 async function getUsers(request: any) {
     return request.get(usersEndpoint);
-}
-
-async function getUser2(request: any) {
-    return request.get(usersEndpoint, { params: userParam });
 }
 
 async function createUser(request: any) {
     return request.post(usersEndpoint, { data: requestBody });
 }
 
-export default { getUsers, getUser2, createUser };
-```
-
-**Test Usage:**
-```typescript
-// tests/api/specs/users-test.spec.ts
-import usersRequest from '../../../src/endpoints/users-endpoints';
-
-test('Verify API response', async ({ request }) => {
-    const response = await usersRequest.getUsers(request);
-    expect(response.status()).toBe(200);
-});
+export default { getUsers, createUser };
 ```
 
 **Benefits:**
-- ✅ Single source of truth for endpoints
-- ✅ Easy to update URLs/bodies
-- ✅ Reusable across tests
-- ✅ Centralized request configuration
+- ✅ Single source of truth for endpoint URLs and request bodies
+- ✅ Easy to update URLs without touching test files
+- ✅ Reusable across multiple test files
 
 ---
 
-### 7. Data-Driven Testing Pattern ✅
+### 9. Data-Driven Testing Pattern ✅
 
 **Purpose:** Parameterized tests from external data sources
 
 **Multi-Format Support:**
 
-**TypeScript Data:**
+**TypeScript data:**
 ```typescript
 // src/data/test-users.ts
-export default {
-    username: 'Admin',
-    password: 'admin123'
-};
+export default { username: 'Admin', password: 'admin123' };
 ```
 
-**JSON Data:**
+**JSON data:**
 ```json
 // src/data/test-users.json
-{
-    "username": "Admin",
-    "password": "admin123"
-}
+{ "username": "Admin", "password": "admin123" }
 ```
 
-**Array Data for Iteration:**
+**Array data for iteration:**
 ```typescript
 // src/data/invalid-test-users.ts
 export default [
@@ -426,15 +488,15 @@ export default [
 ];
 ```
 
-**Test Implementation:**
+**Test implementation:**
 ```typescript
 // tests/ui/specs/login-with-DD.spec.ts
-import invalidData from '../../../src/data/invalid-test-users';
-
 invalidData.forEach(({ username, password, testType }) => {
-    test(`Login fails for ${testType}`, async ({ pomEagerHelpers }) => {
-        await pomEager.getLoginPage().login(username, password);
-        await pomEager.getLoginPage().assertInvalidLoginMessage();
+    test(`invalid login for ${testType}`, async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
+        await pomLazy.loginPage.navigateToLogin();
+        await pomLazy.loginPage.login(username, password);
+        await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 });
 // Generates 3 separate tests, one per data entry
@@ -442,252 +504,70 @@ invalidData.forEach(({ username, password, testType }) => {
 
 **Benefits:**
 - ✅ One test implementation → many test cases
-- ✅ Non-technical users can add test data
 - ✅ Supports TS (type-safe) and JSON (simple)
-- ✅ Descriptive test names from data
+- ✅ Descriptive test names from data (`testType` field)
 
 ---
 
-### 8. Network Interception Pattern ✅
+### 10. Network Interception Pattern ✅
 
-**Purpose:** Manipulate network traffic for testing edge cases
+**Purpose:** Manipulate network traffic for testing edge cases without backend dependencies
 
 **Four Interception Strategies:**
 
-**1. Response Capture (Passive):**
+**1. Response capture (passive):**
 ```typescript
-const apiResponse = await page.waitForResponse(
-    'https://example.com/api/employees?limit=50'
-);
+const apiResponse = await page.waitForResponse('https://example.com/api/employees?limit=50');
 const data = await apiResponse.json();
-// Use captured data for verification or subsequent requests
 ```
 
-**2. Full Response Mocking:**
+**2. Full response mocking:**
 ```typescript
 await page.route('https://api.randomuser.me/?nat=us', async route => {
-    await route.fulfill({
-        body: JSON.stringify(mockData)  // From src/mocks/
-    });
+    await route.fulfill({ body: JSON.stringify(mockData) });
 });
-// Real API never called, mock data returned
 ```
 
-**3. Response Modification:**
+**3. Response modification:**
 ```typescript
 await page.route('https://api.randomuser.me/?nat=us', async route => {
-    const realResponse = await route.fetch();  // Fetch real data
+    const realResponse = await route.fetch();
     const json = await realResponse.json();
-    json.results[0].name = 'Modified Name';    // Modify
+    json.results[0].name.first = "Modified";
     await route.fulfill({ body: JSON.stringify(json) });
 });
 ```
 
-**4. Request Blocking:**
+**4. Request blocking:**
 ```typescript
 await page.route('**/*.{png,jpg,jpeg}', async route => {
-    await route.abort();  // Block all images
+    await route.abort();
 });
-// Faster tests, or test page behavior without resources
 ```
 
 **Files:**
 - `tests/api/specs/network-interception.spec.ts`
 - `src/mocks/response-interception.json`
 
-**Benefits:**
-- ✅ Test without backend dependencies
-- ✅ Simulate slow/failed responses
-- ✅ Speed up tests (block images/ads)
-- ✅ Test edge cases impossible with real API
-
 ---
 
-### 9. Environment Configuration Pattern ✅
+### 11. Builder Pattern ✅
 
-**Purpose:** Multi-environment support with centralized configuration
+**Purpose:** Fluent API for constructing complex test data objects
 
 **Implementation:**
-
-**URL Configuration:**
-```typescript
-// src/utils/urls.ts
-export default {
-    test: {
-        ui: 'https://opensource-demo.orangehrmlive.com',
-        api: 'https://jsonplaceholder.typicode.com'
-    },
-    staging: {
-        ui: 'https://staging.example.com',
-        api: 'https://api-staging.example.com'
-    },
-    production: {
-        ui: 'https://production.example.com',
-        api: 'https://api.example.com'
-    }
-};
-```
-
-**Environment-Aware Data:**
-```typescript
-// src/utils/setup/env-setup.ts
-function getData() {
-    const env = process.env.ENV || 'test';
-    if (env === 'staging') return stagingData;
-    else if (env === 'production') return prodData;
-    else return testData;
-}
-```
-
-**Playwright Config Integration:**
-```typescript
-// playwright.config.ts
-export default defineConfig({
-    use: {
-        baseURL: urls[process.env.ENV || 'test'].ui
-    }
-});
-```
-
-**Usage:**
-```bash
-# Run tests against different environments
-ENV=test npm run test        # Default
-ENV=staging npm run test     # Staging
-ENV=production npm run test  # Production
-```
-
-**Benefits:**
-- ✅ Single codebase for all environments
-- ✅ Centralized URL management
-- ✅ Environment-specific credentials
-- ✅ Easy to add new environments
-
----
-
-### 10. Visual Regression Testing Pattern ✅
-
-**Purpose:** Detect unintended UI changes
-
-**Implementation:**
-```typescript
-// src/utils/ui-helper.ts
-export async function performVisualCheck(page: Page, maxDiffRatio?: number) {
-    const logger = Logger.getLogger('ui-helper');
-
-    // Capture full-page screenshot
-    const viewportSize = page.viewportSize();
-    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
-    await page.setViewportSize({ width: viewportSize!.width, height: bodyHeight });
-
-    // Compare against baseline (soft assertion)
-    try {
-        await expect(page).toHaveScreenshot({
-            maxDiffPixelRatio: maxDiffRatio || 0.2
-        });
-        logger.info('✓ Visual regression check passed');
-    } catch (error) {
-        logger.warn(`⚠ Visual regression check failed: ${error.message}`);
-    }
-
-    // Restore viewport
-    await page.setViewportSize(viewportSize!);
-}
-```
-
-**Playwright Config:**
-```typescript
-// playwright.config.ts
-export default defineConfig({
-    expect: {
-        toHaveScreenshot: {
-            maxDiffPixelRatio: 0.2,   // 20% tolerance
-            threshold: 0.2
-        }
-    },
-    snapshotDir: './visual-regression-baselines'
-});
-```
-
-**Usage:**
-```typescript
-test('Homepage visual check', async ({ page }) => {
-    await page.goto('/');
-    await performVisualCheck(page, 0.1);  // 10% tolerance
-});
-```
-
-**Benefits:**
-- ✅ Detects CSS regressions
-- ✅ Full-page comparison
-- ✅ Configurable tolerance
-- ✅ Diff images on failure
-- ✅ Soft assertion (doesn't block test)
-
----
-
-## Recommended Patterns
-
-Based on the current implementation, here are additional patterns that would enhance the framework:
-
----
-
-### 1. Builder Pattern ✅ IMPLEMENTED (Phase 1)
-
-**Purpose:** Simplify complex object creation (test data, API requests, page objects)
-
-**Status:** ✅ **COMPLETED** - UserBuilder fully implemented in `src/builders/user-builder.ts`
-
-**Problem:**
-Current test data creation can be verbose and error-prone:
-
-```typescript
-// Current approach - manual object creation
-const user = {
-    username: 'testuser',
-    password: 'testpass',
-    email: 'test@example.com',
-    firstName: 'Test',
-    lastName: 'User',
-    role: 'admin',
-    department: 'IT',
-    location: 'New York'
-};
-```
-
-**Solution - Test Data Builder (✅ REAL IMPLEMENTATION):**
-
 ```typescript
 // src/builders/user-builder.ts
-export interface TestUser {
-    username: string;
-    password: string;
-    testType?: string;
-    isValid?: boolean;
-    description?: string;
-}
-
 export class UserBuilder {
-    private user: Partial<TestUser> = {
-        isValid: true,
-        testType: 'valid user'
-    };
+    private user: Partial<TestUser> = { isValid: true, testType: 'valid user' };
 
-    withUsername(username: string): this {
-        this.user.username = username;
-        return this;
-    }
-
-    withPassword(password: string): this {
-        this.user.password = password;
-        return this;
-    }
+    withUsername(username: string): this { this.user.username = username; return this; }
+    withPassword(password: string): this { this.user.password = password; return this; }
 
     asValidAdmin(): this {
         this.user.username = 'Admin';
         this.user.password = 'admin123';
         this.user.isValid = true;
-        this.user.testType = 'valid admin';
         return this;
     }
 
@@ -695,24 +575,16 @@ export class UserBuilder {
         this.user.username = 'Admin';
         this.user.password = 'wrongpassword';
         this.user.isValid = false;
-        this.user.testType = 'invalid password';
-        return this;
-    }
-
-    asInvalidUser(testType: string): this {
-        this.user.isValid = false;
-        this.user.testType = testType;
         return this;
     }
 
     build(): TestUser {
-        if (this.user.username === undefined || this.user.password === undefined) {
+        if (!this.user.username || !this.user.password) {
             throw new Error('Username and password are required');
         }
         return this.user as TestUser;
     }
 
-    // Generate multiple invalid users for data-driven testing
     static buildInvalidUsers(): TestUser[] {
         return [
             new UserBuilder().asInvalidPassword().build(),
@@ -723,385 +595,126 @@ export class UserBuilder {
 }
 ```
 
-**Real Test Usage (from tests/ui/specs/login-with-builder.spec.ts):**
-
+**Test Usage:**
 ```typescript
-import { UserBuilder } from '../../../src/builders/user-builder';
-
-// Using preset configurations
-test('Successful login using valid admin preset', async ({ pomEagerHelpers }) => {
-    const validUser = new UserBuilder().asValidAdmin().build();
-    await pomEager.getLoginPage().login(validUser.username, validUser.password);
-    await pomEager.getHomePage().assertProfileIcon();
-});
-
-// Data-driven testing with builder
-const invalidUsers = UserBuilder.buildInvalidUsers();
-invalidUsers.forEach((user) => {
-    test(`Failed login for ${user.testType}`, async ({ pomEagerHelpers }) => {
-        await pomEager.getLoginPage().login(user.username, user.password);
-        await pomEager.getLoginPage().assertInvalidLoginMessage();
-    });
-});
+// Preset configuration
+const validUser = new UserBuilder().asValidAdmin().build();
 
 // Custom configuration
 const customUser = new UserBuilder()
     .withUsername('CustomUser')
-    .withPassword('custompass')
-    .asInvalidUser('custom scenario')
+    .withPassword('customwrongpass')
+    .asInvalidUser('custom invalid credentials')
+    .withDescription('Custom test case')
     .build();
+
+// Data-driven with builder
+const invalidUsers = UserBuilder.buildInvalidUsers();
+invalidUsers.forEach((user) => {
+    test(`Failed login for ${user.testType}`, async ({ pomLazyFixture }) => { ... });
+});
 ```
 
-**API Request Builder:**
-```typescript
-// src/builders/api-request-builder.ts
-export class ApiRequestBuilder {
-    private config: RequestConfig = {
-        method: 'GET',
-        headers: {},
-        params: {},
-        data: {}
-    };
-
-    get(url: string): this {
-        this.config.method = 'GET';
-        this.config.url = url;
-        return this;
-    }
-
-    post(url: string): this {
-        this.config.method = 'POST';
-        this.config.url = url;
-        return this;
-    }
-
-    withAuth(token: string): this {
-        this.config.headers['Authorization'] = `Bearer ${token}`;
-        return this;
-    }
-
-    withBody(data: any): this {
-        this.config.data = data;
-        return this;
-    }
-
-    withQueryParams(params: object): this {
-        this.config.params = params;
-        return this;
-    }
-
-    async execute(request: any) {
-        return request[this.config.method.toLowerCase()](
-            this.config.url,
-            {
-                data: this.config.data,
-                params: this.config.params,
-                headers: this.config.headers
-            }
-        );
-    }
-}
-
-// Usage in tests
-const response = await new ApiRequestBuilder()
-    .post('/users')
-    .withAuth(authToken)
-    .withBody({ name: 'John' })
-    .execute(request);
-```
+**Files:**
+- ✅ `src/builders/user-builder.ts`
+- ✅ `tests/ui/specs/login-with-builder.spec.ts`
 
 **Benefits:**
-- ✅ Fluent, readable API
-- ✅ Default values for optional fields
-- ✅ Validation at build time
-- ✅ Reusable across tests
-- ✅ Easy to extend with new fields
-
-**✅ Implementation Files:**
-
-- ✅ `src/builders/user-builder.ts` - **IMPLEMENTED**
-- ✅ `tests/ui/specs/login-with-builder.spec.ts` - **EXAMPLE USAGE**
-- 🔮 `src/builders/api-request-builder.ts` - Future enhancement
-- 🔮 `src/builders/test-data-builder.ts` - Future enhancement
+- ✅ Fluent, self-documenting API
+- ✅ Build-time validation (throws if required fields missing)
+- ✅ Preset configurations for common scenarios
+- ✅ Works for both positive and negative test scenarios
 
 ---
 
-### 2. Repository Pattern 🎯 HIGH PRIORITY
+## Recommended Patterns
 
-**Purpose:** Abstract test data storage and retrieval
+Based on the current implementation, here are additional patterns that would enhance the framework:
+
+---
+
+### 1. Repository Pattern 🎯 HIGH PRIORITY
+
+**Purpose:** Abstract test data storage and retrieval behind a unified interface
 
 **Problem:**
-Current approach mixes data location concerns with test logic:
-
+Tests currently import data directly from multiple sources:
 ```typescript
-// Current - direct imports from multiple sources
 import testUsers from '../../../src/data/test-users';
 import invalidUsers from '../../../src/data/invalid-test-users';
 ```
 
-**Solution - Data Repository:**
-
+**Solution — Data Repository:**
 ```typescript
 // src/repositories/user-repository.ts
 export class UserRepository {
     private static testUsers: Map<string, User> = new Map();
-
-    static {
-        // Load data from multiple sources
-        this.loadFromJson('../data/test-users.json');
-        this.loadFromDatabase();  // Future: DB integration
-        this.loadFromAPI();       // Future: API integration
-    }
 
     static getValidUser(): User {
         return this.testUsers.get('valid-admin')!;
     }
 
     static getInvalidUsers(): User[] {
-        return Array.from(this.testUsers.values())
-            .filter(u => u.type === 'invalid');
+        return Array.from(this.testUsers.values()).filter(u => !u.isValid);
     }
 
-    static getUserByRole(role: string): User {
-        return Array.from(this.testUsers.values())
-            .find(u => u.role === role)!;
-    }
-
-    static createUser(user: User): void {
-        this.testUsers.set(user.id, user);
-    }
-
-    // Query builder methods
+    // Query builder interface
     static query(): UserQuery {
         return new UserQuery(Array.from(this.testUsers.values()));
     }
 }
 
-class UserQuery {
-    constructor(private users: User[]) {}
-
-    whereRole(role: string): this {
-        this.users = this.users.filter(u => u.role === role);
-        return this;
-    }
-
-    whereDepartment(dept: string): this {
-        this.users = this.users.filter(u => u.department === dept);
-        return this;
-    }
-
-    first(): User {
-        return this.users[0];
-    }
-
-    all(): User[] {
-        return this.users;
-    }
-}
-```
-
-**Test Usage:**
-```typescript
-// Clean, expressive queries
-const adminUser = UserRepository.getValidUser();
+// Usage
+const admin = UserRepository.getValidUser();
 const invalidUsers = UserRepository.getInvalidUsers();
-const itAdmins = UserRepository.query()
-    .whereRole('admin')
-    .whereDepartment('IT')
-    .all();
 ```
 
 **Benefits:**
-- ✅ Single source of truth for data access
+- ✅ Single source of truth for test data access
 - ✅ Easy to switch data sources (JSON → DB → API)
 - ✅ Queryable interface
-- ✅ Centralized data management
 - ✅ Can add caching layer
 
 ---
 
-### 3. Strategy Pattern 🎯 MEDIUM PRIORITY
+### 2. Strategy Pattern 🎯 MEDIUM PRIORITY
 
-**Purpose:** Encapsulate different algorithms/behaviors that can be swapped at runtime
+**Purpose:** Encapsulate different algorithms that can be swapped at runtime
 
-**Use Case 1: Browser-Specific Behavior**
-
-**Problem:**
-Different browsers have different quirks that need special handling:
-
-```typescript
-// Current - if/else scattered across tests
-if (browserName === 'firefox') {
-    await page.waitForTimeout(1000);  // Firefox needs extra wait
-}
-await element.click();
-```
-
-**Solution - Browser Strategy:**
-
+**Use Case — Browser-Specific Behavior:**
 ```typescript
 // src/strategies/browser-strategy.ts
 interface BrowserStrategy {
     click(locator: Locator): Promise<void>;
-    fillInput(locator: Locator, value: string): Promise<void>;
-    handleFileUpload(locator: Locator, filePath: string): Promise<void>;
-}
-
-class ChromiumStrategy implements BrowserStrategy {
-    async click(locator: Locator) {
-        await locator.click();
-    }
-
-    async fillInput(locator: Locator, value: string) {
-        await locator.fill(value);
-    }
-
-    async handleFileUpload(locator: Locator, filePath: string) {
-        await locator.setInputFiles(filePath);
-    }
 }
 
 class FirefoxStrategy implements BrowserStrategy {
     async click(locator: Locator) {
-        // Firefox quirk: needs visibility check before click
         await locator.waitFor({ state: 'visible' });
-        await locator.click({ force: true });
-    }
-
-    async fillInput(locator: Locator, value: string) {
-        // Firefox quirk: clear before fill
-        await locator.clear();
-        await locator.fill(value);
-    }
-
-    async handleFileUpload(locator: Locator, filePath: string) {
-        // Firefox needs manual trigger
-        await locator.evaluate(el => el.click());
-        await locator.setInputFiles(filePath);
+        await locator.click({ force: true });  // Firefox quirk
     }
 }
 
-class WebKitStrategy implements BrowserStrategy {
-    async click(locator: Locator) {
-        // Safari quirk: scroll into view first
-        await locator.scrollIntoViewIfNeeded();
-        await locator.click();
-    }
-
-    async fillInput(locator: Locator, value: string) {
-        await locator.fill(value);
-    }
-
-    async handleFileUpload(locator: Locator, filePath: string) {
-        await locator.setInputFiles(filePath);
-    }
-}
-
-// Factory to select strategy
 export class BrowserStrategyFactory {
     static getStrategy(browserName: string): BrowserStrategy {
         switch (browserName) {
-            case 'chromium': return new ChromiumStrategy();
             case 'firefox': return new FirefoxStrategy();
-            case 'webkit': return new WebKitStrategy();
             default: return new ChromiumStrategy();
         }
     }
 }
 ```
 
-**Integration with AdvancedActionsHelper:**
-```typescript
-// src/utils/advanced-actions-helper.ts
-export class AdvancedActionsHelper {
-    private browserStrategy: BrowserStrategy;
-
-    constructor(page: Page, testName: string, browserName: string) {
-        this.browserStrategy = BrowserStrategyFactory.getStrategy(browserName);
-    }
-
-    async click(locator: Locator, description: string) {
-        this.logger.info(`Step ${++this.stepNumber}: ${description}`);
-        await this.browserStrategy.click(locator);  // Delegates to strategy
-    }
-}
-```
-
-**Use Case 2: Assertion Strategy (Retry vs Immediate)**
-
-```typescript
-// src/strategies/assertion-strategy.ts
-interface AssertionStrategy {
-    execute(assertion: () => Promise<void>): Promise<void>;
-}
-
-class ImmediateAssertionStrategy implements AssertionStrategy {
-    async execute(assertion: () => Promise<void>) {
-        await assertion();  // Fails immediately
-    }
-}
-
-class RetryAssertionStrategy implements AssertionStrategy {
-    constructor(private maxRetries = 3, private delayMs = 1000) {}
-
-    async execute(assertion: () => Promise<void>) {
-        for (let i = 0; i < this.maxRetries; i++) {
-            try {
-                await assertion();
-                return;  // Success
-            } catch (error) {
-                if (i === this.maxRetries - 1) throw error;
-                await new Promise(resolve => setTimeout(resolve, this.delayMs));
-            }
-        }
-    }
-}
-
-// Usage in tests
-const assertHelper = new AdvancedAssertionsHelper(page, testName);
-assertHelper.setStrategy(new RetryAssertionStrategy(5, 2000));  // Flaky elements
-```
-
-**Benefits:**
-- ✅ Encapsulates browser-specific logic
-- ✅ Easy to add new browsers
-- ✅ Swappable at runtime
-- ✅ Single responsibility (each strategy handles one browser)
-
 ---
 
-### 4. Decorator Pattern 🎯 MEDIUM PRIORITY
+### 3. Decorator Pattern 🎯 MEDIUM PRIORITY
 
-**Purpose:** Add functionality to actions/assertions without modifying core classes
-
-**Problem:**
-Want to add retry logic, performance monitoring, or screenshots to specific actions without cluttering the base class:
-
-**Solution - Action Decorators:**
+**Purpose:** Add cross-cutting concerns (retry, performance monitoring) to actions without modifying core classes
 
 ```typescript
 // src/decorators/action-decorators.ts
-
-// Base interface
-interface Action {
-    execute(): Promise<void>;
-}
-
-// Concrete action
-class ClickAction implements Action {
-    constructor(private locator: Locator) {}
-
-    async execute() {
-        await this.locator.click();
-    }
-}
-
-// Decorator 1: Retry
 class RetryDecorator implements Action {
-    constructor(
-        private action: Action,
-        private maxRetries = 3
-    ) {}
+    constructor(private action: Action, private maxRetries = 3) {}
 
     async execute() {
         for (let i = 0; i < this.maxRetries; i++) {
@@ -1115,477 +728,73 @@ class RetryDecorator implements Action {
         }
     }
 }
-
-// Decorator 2: Performance Monitoring
-class PerformanceDecorator implements Action {
-    constructor(
-        private action: Action,
-        private logger: Log4jsLogger
-    ) {}
-
-    async execute() {
-        const start = performance.now();
-        await this.action.execute();
-        const duration = performance.now() - start;
-
-        if (duration > 5000) {
-            this.logger.warn(`Slow action detected: ${duration}ms`);
-        }
-    }
-}
-
-// Decorator 3: Screenshot Before/After
-class ScreenshotDecorator implements Action {
-    constructor(
-        private action: Action,
-        private page: Page,
-        private actionName: string
-    ) {}
-
-    async execute() {
-        await this.page.screenshot({ path: `before-${this.actionName}.png` });
-        await this.action.execute();
-        await this.page.screenshot({ path: `after-${this.actionName}.png` });
-    }
-}
-
-// Usage - stack decorators
-const action = new ClickAction(loginButton);
-const decoratedAction = new RetryDecorator(
-    new PerformanceDecorator(
-        new ScreenshotDecorator(action, page, 'login-click'),
-        logger
-    ),
-    5  // max retries
-);
-await decoratedAction.execute();
 ```
-
-**Practical Integration:**
-```typescript
-// src/utils/advanced-actions-helper.ts
-export class AdvancedActionsHelper {
-    async clickWithRetry(locator: Locator, description: string, maxRetries = 3) {
-        const action = new RetryDecorator(
-            new ClickAction(locator),
-            maxRetries
-        );
-        await action.execute();
-    }
-
-    async criticalClick(locator: Locator, description: string) {
-        // Critical action: retry + performance monitoring + screenshot
-        const action = new RetryDecorator(
-            new PerformanceDecorator(
-                new ScreenshotDecorator(
-                    new ClickAction(locator),
-                    this.page,
-                    description
-                ),
-                this.logger
-            ),
-            5
-        );
-        await action.execute();
-    }
-}
-```
-
-**Benefits:**
-- ✅ Add functionality without changing base classes
-- ✅ Composable (stack multiple decorators)
-- ✅ Single responsibility
-- ✅ Open/closed principle (open for extension, closed for modification)
 
 ---
 
-### 5. Factory Pattern ✅ IMPLEMENTED (Phase 1)
+### 4. Chain of Responsibility Pattern 🎯 LOW PRIORITY
 
-**Purpose:** Centralize object creation logic
-
-**Status:** ✅ **COMPLETED** - PageFactory and HelperFactory fully implemented
-
-**Problem:**
-Page object instantiation repeated across fixtures:
+**Purpose:** Pass errors through a chain of handlers until one handles it
 
 ```typescript
-// Before - repeated in multiple fixtures
-const loginPage = new LoginPage(page, testName);
-const homePage = new HomePage(page, testName);
-const actions = new AdvancedActionsHelper(page, testName);
-const assert = new AdvancedAssertionsHelper(page, testName);
-```
-
-**Solution - Page Object Factory (✅ REAL IMPLEMENTATION):**
-
-```typescript
-// src/factories/page-factory.ts
-import { Page } from '@playwright/test';
-import { LoginPage } from '../pages/login-page';
-import { HomePage } from '../pages/home-page';
-import { Logger } from '../utils/Logger';
-
-export class PageFactory {
-    static createLoginPage(page: Page, testName: string): LoginPage {
-        const logger = Logger.getLogger('PageFactory');
-        logger.debug(`Creating LoginPage for test: ${testName}`);
-        return new LoginPage(page, testName);
-    }
-
-    static createHomePage(page: Page, testName: string): HomePage {
-        const logger = Logger.getLogger('PageFactory');
-        logger.debug(`Creating HomePage for test: ${testName}`);
-        return new HomePage(page, testName);
-    }
-
-    static createAllPages(page: Page, testName: string) {
-        return {
-            loginPage: this.createLoginPage(page, testName),
-            homePage: this.createHomePage(page, testName)
-        };
-    }
-
-    // Generic factory for custom pages
-    static createPage<T>(
-        PageClass: new (page: Page, testName: string) => T,
-        page: Page,
-        testName: string
-    ): T {
-        const logger = Logger.getLogger('PageFactory');
-        logger.debug(`Creating ${PageClass.name} for test: ${testName}`);
-        return new PageClass(page, testName);
-    }
-}
-```
-
-**Helper Factory (✅ REAL IMPLEMENTATION):**
-
-```typescript
-// src/factories/helper-factory.ts
-import { Page } from '@playwright/test';
-import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-import { Logger } from '../utils/Logger';
-
-export interface HelperSet {
-    actions: AdvancedActionsHelper;
-    assert: AdvancedAssertionsHelper;
-}
-
-export class HelperFactory {
-    static createActionsHelper(page: Page, testName: string): AdvancedActionsHelper {
-        const logger = Logger.getLogger('HelperFactory');
-        logger.debug(`Creating AdvancedActionsHelper for test: ${testName}`);
-        return new AdvancedActionsHelper(page, testName);
-    }
-
-    static createAssertionsHelper(page: Page, testName: string): AdvancedAssertionsHelper {
-        const logger = Logger.getLogger('HelperFactory');
-        logger.debug(`Creating AdvancedAssertionsHelper for test: ${testName}`);
-        return new AdvancedAssertionsHelper(page, testName);
-    }
-
-    static createHelpers(page: Page, testName: string): HelperSet {
-        const logger = Logger.getLogger('HelperFactory');
-        logger.debug(`Creating helper set (actions + assertions) for test: ${testName}`);
-        return {
-            actions: this.createActionsHelper(page, testName),
-            assert: this.createAssertionsHelper(page, testName)
-        };
-    }
-}
-```
-
-**Real Usage (from src/fixtures/pom-eager-fixture.ts):**
-
-```typescript
-import { HelperFactory } from '../factories/helper-factory';
-
-export const test = base.extend<{ pomEagerHelpers: POMEagerHelpers }>({
-    pomEagerHelpers: async ({ page }, use, testInfo) => {
-        // ✅ Using Factory Pattern
-        const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-        const pomEager = new POMEager(page, testInfo.title);
-
-        await use({ pomEager, actions, assert });
-    }
-});
-```
-
-**Benefits:**
-
-- ✅ Centralized instantiation logic
-- ✅ Automatic logging of object creation
-- ✅ Consistent object creation across fixtures
-- ✅ Easy to add pre/post-creation hooks
-- ✅ Can add caching/pooling in the future
-
-**✅ Implementation Files:**
-
-- ✅ `src/factories/page-factory.ts` - **IMPLEMENTED**
-- ✅ `src/factories/helper-factory.ts` - **IMPLEMENTED**
-- ✅ `src/fixtures/pom-eager-fixture.ts` - **REFACTORED TO USE FACTORY**
-
----
-
-### 6. Chain of Responsibility Pattern 🎯 LOW PRIORITY
-
-**Purpose:** Pass requests through a chain of handlers until one handles it
-
-**Use Case: Error Handling Chain**
-
-```typescript
-// src/handlers/error-handler-chain.ts
-abstract class ErrorHandler {
-    private nextHandler?: ErrorHandler;
-
-    setNext(handler: ErrorHandler): ErrorHandler {
-        this.nextHandler = handler;
-        return handler;
-    }
-
-    async handle(error: Error, context: TestContext): Promise<void> {
-        if (await this.canHandle(error)) {
-            await this.process(error, context);
-        } else if (this.nextHandler) {
-            await this.nextHandler.handle(error, context);
-        } else {
-            throw error;  // No handler found
-        }
-    }
-
-    abstract canHandle(error: Error): Promise<boolean>;
-    abstract process(error: Error, context: TestContext): Promise<void>;
-}
-
-// Handler 1: Network Errors
-class NetworkErrorHandler extends ErrorHandler {
-    async canHandle(error: Error): Promise<boolean> {
-        return error.message.includes('net::ERR') ||
-               error.message.includes('Network');
-    }
-
-    async process(error: Error, context: TestContext): Promise<void> {
-        context.logger.warn('Network error detected, retrying...');
-        await context.page.reload();
-        await context.retryAction();
-    }
-}
-
-// Handler 2: Timeout Errors
-class TimeoutErrorHandler extends ErrorHandler {
-    async canHandle(error: Error): Promise<boolean> {
-        return error.message.includes('timeout') ||
-               error.message.includes('Timeout');
-    }
-
-    async process(error: Error, context: TestContext): Promise<void> {
-        context.logger.warn('Timeout detected, waiting and retrying...');
-        await context.page.waitForLoadState('networkidle');
-        await context.retryAction();
-    }
-}
-
-// Handler 3: Element Not Found
-class ElementNotFoundHandler extends ErrorHandler {
-    async canHandle(error: Error): Promise<boolean> {
-        return error.message.includes('element') &&
-               error.message.includes('not found');
-    }
-
-    async process(error: Error, context: TestContext): Promise<void> {
-        context.logger.warn('Element not found, scrolling and retrying...');
-        await context.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await context.page.waitForTimeout(1000);
-        await context.retryAction();
-    }
-}
-
-// Build the chain
-const errorChain = new NetworkErrorHandler();
-errorChain
+// Handler for network errors → retry
+// Handler for timeout errors → wait and retry
+// Handler for element-not-found → scroll and retry
+const errorChain = new NetworkErrorHandler()
     .setNext(new TimeoutErrorHandler())
     .setNext(new ElementNotFoundHandler());
-
-// Usage in AdvancedActionsHelper
-try {
-    await locator.click();
-} catch (error) {
-    await errorChain.handle(error, { page, logger, retryAction: () => locator.click() });
-}
 ```
-
-**Benefits:**
-- ✅ Flexible error handling
-- ✅ Easy to add new handlers
-- ✅ Handlers are independent
-- ✅ Automatic retry for recoverable errors
 
 ---
 
-### 7. Observer Pattern (Event-Driven Testing) 🎯 LOW PRIORITY
+### 5. Observer Pattern 🎯 LOW PRIORITY
 
-**Purpose:** Notify subscribers when test events occur
-
-**Use Case: Test Event Notifications**
+**Purpose:** Notify subscribers when test events occur (Slack alerts, metrics collection)
 
 ```typescript
-// src/observers/test-observer.ts
-interface TestEvent {
-    type: 'START' | 'PASS' | 'FAIL' | 'SKIP';
-    testName: string;
-    timestamp: Date;
-    duration?: number;
-    error?: Error;
-}
-
-interface TestObserver {
-    onTestEvent(event: TestEvent): Promise<void>;
-}
-
 class TestEventManager {
-    private observers: TestObserver[] = [];
-
-    subscribe(observer: TestObserver): void {
-        this.observers.push(observer);
-    }
-
-    async notify(event: TestEvent): Promise<void> {
-        for (const observer of this.observers) {
-            await observer.onTestEvent(event);
-        }
-    }
+    subscribe(observer: TestObserver): void { ... }
+    async notify(event: TestEvent): Promise<void> { ... }
 }
 
-// Observer 1: Slack Notifications
-class SlackNotifier implements TestObserver {
-    async onTestEvent(event: TestEvent) {
-        if (event.type === 'FAIL') {
-            await this.sendSlackMessage({
-                channel: '#test-failures',
-                text: `❌ Test failed: ${event.testName}\nError: ${event.error?.message}`
-            });
-        }
-    }
-}
-
-// Observer 2: Metrics Collector
-class MetricsCollector implements TestObserver {
-    private metrics: Map<string, number> = new Map();
-
-    async onTestEvent(event: TestEvent) {
-        const key = `${event.type}_count`;
-        this.metrics.set(key, (this.metrics.get(key) || 0) + 1);
-
-        if (event.type === 'PASS' && event.duration) {
-            this.recordDuration(event.testName, event.duration);
-        }
-    }
-}
-
-// Observer 3: Screenshot on Failure
-class FailureScreenshotObserver implements TestObserver {
-    constructor(private page: Page) {}
-
-    async onTestEvent(event: TestEvent) {
-        if (event.type === 'FAIL') {
-            await this.page.screenshot({
-                path: `failures/${event.testName}-${Date.now()}.png`
-            });
-        }
-    }
-}
-
-// Integration in fixtures
-const eventManager = new TestEventManager();
 eventManager.subscribe(new SlackNotifier());
 eventManager.subscribe(new MetricsCollector());
-eventManager.subscribe(new FailureScreenshotObserver(page));
-
-// Notify on events
-await eventManager.notify({ type: 'START', testName, timestamp: new Date() });
-// ... test execution ...
-await eventManager.notify({ type: 'PASS', testName, timestamp: new Date(), duration: 1500 });
 ```
-
-**Benefits:**
-- ✅ Decouple test execution from notifications
-- ✅ Easy to add new observers
-- ✅ Multiple actions on single event
-- ✅ Can be enabled/disabled per environment
 
 ---
 
-### 8. Template Method Pattern 🎯 LOW PRIORITY
+### 6. Template Method Pattern 🎯 LOW PRIORITY
 
-**Purpose:** Define skeleton of algorithm, let subclasses override specific steps
-
-**Use Case: Base Test Class**
+**Purpose:** Define a skeleton algorithm in a base class, let subclasses override specific steps
 
 ```typescript
-// src/base/base-test.ts
-export abstract class BaseTest {
-    protected page: Page;
-    protected logger: Log4jsLogger;
-
+abstract class BaseTest {
     async runTest() {
         await this.beforeTest();
         try {
-            await this.executeTest();  // Abstract - implemented by subclass
-            await this.afterTestSuccess();
-        } catch (error) {
-            await this.afterTestFailure(error);
-            throw error;
+            await this.executeTest();  // Abstract — implemented by subclass
         } finally {
             await this.afterTest();
         }
     }
 
-    // Template methods with default implementations
-    protected async beforeTest() {
-        this.logger.info('Test starting...');
-    }
-
-    protected async afterTest() {
-        this.logger.info('Test cleanup...');
-    }
-
-    protected async afterTestSuccess() {
-        this.logger.info('✓ Test passed');
-    }
-
-    protected async afterTestFailure(error: Error) {
-        this.logger.error(`✗ Test failed: ${error.message}`);
-        await this.page.screenshot({ path: `failures/${this.testName}.png` });
-    }
-
-    // Abstract method - must be implemented
     protected abstract executeTest(): Promise<void>;
-}
-
-// Concrete implementation
-class LoginTest extends BaseTest {
-    protected async executeTest() {
-        const loginPage = new LoginPage(this.page);
-        await loginPage.navigateToLogin();
-        await loginPage.login('Admin', 'admin123');
-        // Custom test logic
-    }
-
-    // Override if needed
-    protected async afterTestSuccess() {
-        await super.afterTestSuccess();
-        // Custom success logic
-        await this.sendSuccessNotification();
-    }
 }
 ```
 
-**Benefits:**
-- ✅ Consistent test structure
-- ✅ Reusable setup/teardown
-- ✅ Override only what you need
-- ✅ Enforces test lifecycle
+---
+
+### 7. Expand Builder Pattern 🎯 MEDIUM PRIORITY
+
+**Add ApiRequestBuilder for API tests:**
+```typescript
+// src/builders/api-request-builder.ts
+const response = await new ApiRequestBuilder()
+    .post('/users')
+    .withAuth(authToken)
+    .withBody({ name: 'John' })
+    .execute(request);
+```
 
 ---
 
@@ -1593,19 +802,21 @@ class LoginTest extends BaseTest {
 
 | Pattern | Priority | Complexity | Impact | Effort | Best For |
 |---------|----------|------------|--------|--------|----------|
-| **Builder** | 🔴 HIGH | Low | High | Low | Complex test data, API requests |
+| **Builder** | ✅ Done | Low | High | Low | Complex test data, API requests |
+| **Factory** | ✅ Done | Low | Medium | Low | Centralized object creation |
+| **StepRunner (Adapter)** | ✅ Done | Low | High | Low | Dual-channel step observability |
 | **Repository** | 🔴 HIGH | Medium | High | Medium | Centralized data management |
-| **Strategy** | 🟡 MEDIUM | Medium | Medium | Medium | Browser-specific logic, swappable algorithms |
-| **Decorator** | 🟡 MEDIUM | Medium | Medium | Medium | Adding behavior to actions/assertions |
-| **Factory** | 🟡 MEDIUM | Low | Medium | Low | Centralized object creation |
+| **Strategy** | 🟡 MEDIUM | Medium | Medium | Medium | Browser-specific logic |
+| **Decorator** | 🟡 MEDIUM | Medium | Medium | Medium | Retry, performance monitoring |
+| **Expand Builder** | 🟡 MEDIUM | Low | Medium | Low | API request building |
 | **Chain of Responsibility** | 🟢 LOW | High | Low | High | Complex error handling |
 | **Observer** | 🟢 LOW | Medium | Low | Medium | Event notifications, metrics |
 | **Template Method** | 🟢 LOW | Low | Low | Low | Test base classes |
 
 **Priority Legend:**
-- 🔴 **HIGH** - Immediate value, low effort
-- 🟡 **MEDIUM** - Good value, moderate effort
-- 🟢 **LOW** - Nice to have, higher effort or lower impact
+- 🔴 **HIGH** — Immediate value, low effort
+- 🟡 **MEDIUM** — Good value, moderate effort
+- 🟢 **LOW** — Nice to have, higher effort or lower impact
 
 ---
 
@@ -1613,71 +824,36 @@ class LoginTest extends BaseTest {
 
 ### Phase 1: Quick Wins ✅ COMPLETED
 
-**Goal:** Add high-value, low-effort patterns
+1. ✅ **Builder Pattern** — `src/builders/user-builder.ts`
+2. ✅ **Factory Pattern** — `src/factories/helper-factory.ts`, `src/factories/page-factory.ts`
+3. ✅ **StepRunner (Adapter)** — `src/utils/step-runner.ts` — dual-channel step observability
 
-**Status:** ✅ **PHASE 1 COMPLETE** - All patterns implemented and integrated
+### Phase 2: Data Management (Next Priority)
 
-1. ✅ **Builder Pattern** - `src/builders/user-builder.ts` **[DONE]**
-   - ✅ `UserBuilder` implemented with preset configurations
-   - ✅ Example test spec created: `tests/ui/specs/login-with-builder.spec.ts`
-   - ✅ Build-time validation and fluent API
-   - **Actual effort:** ~4 hours
-   - **Impact:** Significantly improved test readability
-
-2. ✅ **Factory Pattern** - `src/factories/` **[DONE]**
-   - ✅ `PageFactory` implemented with logging
-   - ✅ `HelperFactory` implemented with logging
-   - ✅ Refactored `pom-eager-fixture.ts` to use HelperFactory
-   - **Actual effort:** ~3 hours
-   - **Impact:** Reduced duplication in fixtures, consistent object creation
-
-### Phase 2: Data Management (Week 2)
-
-**Goal:** Centralize and improve test data handling
-
-3. **Repository Pattern** - `src/repositories/user-repository.ts`
+4. **Repository Pattern** — `src/repositories/user-repository.ts`
    - Create `UserRepository` for user data
-   - Create `ApiDataRepository` for API test data
-   - Estimated effort: 6 hours
+   - Estimated effort: 4–6 hours
    - Impact: Single source of truth for test data
 
-4. **Expand Builder Pattern**
+5. **Expand Builder Pattern**
    - Add `ApiRequestBuilder` for API tests
-   - Add `TestDataBuilder` for complex scenarios
-   - Estimated effort: 4 hours
+   - Estimated effort: 3–4 hours
 
-### Phase 3: Behavioral Flexibility (Week 3)
+### Phase 3: Behavioral Flexibility
 
-**Goal:** Add runtime flexibility for different scenarios
+6. **Strategy Pattern** — `src/strategies/browser-strategy.ts`
+   - Browser-specific click/fill strategies
+   - Estimated effort: 6–8 hours
 
-5. **Strategy Pattern** - `src/strategies/browser-strategy.ts`
-   - Implement browser-specific strategies
-   - Integrate with `AdvancedActionsHelper`
-   - Estimated effort: 8 hours
-   - Impact: Cleaner browser-specific logic
+7. **Decorator Pattern** — `src/decorators/action-decorators.ts`
+   - Retry, performance monitoring decorators
+   - Estimated effort: 5–6 hours
 
-6. **Decorator Pattern** - `src/decorators/action-decorators.ts`
-   - Create retry, performance, screenshot decorators
-   - Add convenience methods to helpers
-   - Estimated effort: 6 hours
-   - Impact: Flexible action enhancement
+### Phase 4: Advanced Features
 
-### Phase 4: Advanced Features (Week 4+)
-
-**Goal:** Add sophisticated patterns for complex scenarios
-
-7. **Chain of Responsibility** - `src/handlers/error-handler-chain.ts`
-   - Implement error handler chain
-   - Integrate with helpers
-   - Estimated effort: 8 hours
-   - Impact: Intelligent error recovery
-
-8. **Observer Pattern** - `src/observers/test-observer.ts`
-   - Implement event system
-   - Add Slack/Teams notifier
-   - Add metrics collector
-   - Estimated effort: 10 hours
-   - Impact: Better monitoring and notifications
+8. **Chain of Responsibility** — `src/handlers/error-handler-chain.ts`
+9. **Observer Pattern** — `src/observers/test-observer.ts`
+10. **Template Method** — `src/base/base-test.ts`
 
 ---
 
@@ -1685,58 +861,38 @@ class LoginTest extends BaseTest {
 
 ### Current Strengths ✅
 
-The framework now implements **12 solid design patterns** (Phase 1 Complete!):
+The framework implements **11 solid design patterns** (Phase 1 Complete!):
 
-**Core Patterns (Original):**
-1. ✅ Page Object Model - Clean UI abstraction
-2. ✅ Manager Pattern (Eager/Lazy) - Centralized page management
-3. ✅ Fixture Pattern - Dependency injection
-4. ✅ Helper/Wrapper - Enhanced actions/assertions
-5. ✅ Centralized Logging - Multi-channel logging (log4js)
-6. ✅ Endpoint Abstraction - API request centralization
-7. ✅ Data-Driven Testing - Parameterized tests
-8. ✅ Network Interception - API mocking/modification
-9. ✅ Environment Configuration - Multi-env support
-10. ✅ Visual Regression - Screenshot comparison
+**Core Patterns:**
 
-**Phase 1 Patterns (NEW - ✅ Implemented):**
+1. ✅ Page Object Model — Clean UI abstraction
+2. ✅ Manager Pattern (Eager/Lazy) — Centralized page management
+3. ✅ Fixture Pattern — Dependency injection with lifecycle management
+4. ✅ Helper/Wrapper — Enhanced actions and assertions with logging
+5. ✅ Centralized Logging (Winston) — Multi-channel logging
+6. ✅ Endpoint Abstraction — API request centralization
+7. ✅ Data-Driven Testing — Parameterized tests
+8. ✅ Network Interception — API mocking and modification
+9. ✅ Environment Configuration — Multi-env support
+10. ✅ Builder Pattern — Fluent test data creation (`UserBuilder`)
+11. ✅ Adapter Pattern (StepRunner) — Bridges Winston and `test.step()` for dual-channel observability
 
-1. ✅ **Builder Pattern** - Fluent API for test data creation
-    - `src/builders/user-builder.ts`
-    - `tests/ui/specs/login-with-builder.spec.ts`
-2. ✅ **Factory Pattern** - Centralized object creation
-    - `src/factories/page-factory.ts`
-    - `src/factories/helper-factory.ts`
-    - Integrated into `pom-eager-fixture.ts`
+**Phase 1 Complete — Files:**
 
-### Recommended Next Phases 🎯
-
-**Phase 2: Data Management (Next Priority):**
-1. 🔴 **Repository Pattern** - Centralize test data storage/retrieval
-   - Single source of truth for test data
-   - Queryable interface
-   - Easy to switch data sources (JSON → DB → API)
-
-**Phase 3: Behavioral Flexibility:**
-2. 🟡 **Strategy Pattern** - Browser-specific behaviors
-3. 🟡 **Decorator Pattern** - Flexible action enhancement
-
-**Phase 4: Advanced Features:**
-4. 🟢 **Chain of Responsibility** - Advanced error handling
-5. 🟢 **Observer Pattern** - Event notifications
-6. 🟢 **Template Method** - Base test classes
+- ✅ `src/builders/user-builder.ts`
+- ✅ `src/factories/helper-factory.ts`
+- ✅ `src/factories/page-factory.ts`
+- ✅ `src/utils/step-runner.ts`
 
 ### Next Steps
 
-1. ✅ ~~Phase 1 Complete~~ - Builder + Factory patterns implemented
-2. **Move to Phase 2** - Implement Repository Pattern for centralized data management
-3. **Continue iterating** - Add patterns incrementally based on value
-4. **Document continuously** - Keep this guide updated with real implementations
-5. **Validate impact** - Measure improvements in test readability and maintainability
+1. **Move to Phase 2** — Implement Repository Pattern for centralized data management
+2. **Add ApiRequestBuilder** — Extend Builder pattern for API test data
+3. **Continue iterating** — Add patterns incrementally based on value
+4. **Keep this guide updated** — Document real implementations with actual file references
 
 ---
 
-**Document Version:** 2.0 (Phase 1 Complete)
-**Last Updated:** 2026-02-15
-**Phase 1 Completed:** 2026-02-15
+**Document Version:** 3.0 (Phase 1 Complete + StepRunner added)
+**Last Updated:** 2026-02-23
 **Maintained By:** Test Automation Team

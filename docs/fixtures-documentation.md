@@ -2,7 +2,7 @@
 
 **Comprehensive guide to all fixtures in the Playwright Test Automation Framework**
 
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-02-23
 
 ---
 
@@ -12,9 +12,7 @@
 2. [Fixture Catalog](#fixture-catalog)
 3. [Usage Analysis](#usage-analysis)
 4. [DRY & SOLID Analysis](#dry--solid-analysis)
-5. [Recommendations](#recommendations)
-6. [Migration Guide](#migration-guide)
-7. [Decision Matrix](#decision-matrix)
+5. [Decision Matrix](#decision-matrix)
 
 ---
 
@@ -24,7 +22,7 @@
 
 Fixtures are Playwright's dependency injection mechanism that provides:
 - **Automatic setup/teardown** - Runs before and after each test
-- **Reusable test dependencies** - Page objects, helpers, loggers
+- **Reusable test dependencies** - Page managers, loggers
 - **Test isolation** - Each test gets fresh instances
 - **Composability** - Can combine multiple fixtures
 
@@ -33,9 +31,9 @@ Fixtures are Playwright's dependency injection mechanism that provides:
 ```
 ┌─────────────────────────────────────────┐
 │  SETUP (before test)                    │
-│  • Create objects                       │
-│  • Initialize resources                 │
-│  • Start logging                        │
+│  • Create POM manager                   │
+│  • Create Winston logger                │
+│  • Log TEST START                       │
 └─────────────────────────────────────────┘
                    ↓
 ┌─────────────────────────────────────────┐
@@ -45,108 +43,117 @@ Fixtures are Playwright's dependency injection mechanism that provides:
                    ↓
 ┌─────────────────────────────────────────┐
 │  TEARDOWN (after test - ALWAYS runs)    │
-│  • Log test results                     │
-│  • Capture failure artifacts            │
-│  • Clean up resources                   │
+│  • Log PASSED / FAILED / SKIPPED        │
+│  • Log duration and error if failed     │
 └─────────────────────────────────────────┘
+```
+
+### Location
+
+All fixtures live in `tests/fixtures/`:
+
+```
+tests/fixtures/
+├── pom-eager-fixture.ts    ← UI tests (eager page initialization)
+├── pom-lazy-fixture.ts     ← UI tests (lazy page initialization)
+└── api-test-fixture.ts     ← API tests
 ```
 
 ---
 
 ## Fixture Catalog
 
-The framework provides **5 fixtures** serving different testing needs:
+The framework provides **3 fixtures** serving different testing needs:
 
-### 1. pom-eager-fixture.ts ⚡ (MOST USED)
+### 1. pom-eager-fixture.ts ⚡
 
-**Location:** `src/fixtures/pom-eager-fixture.ts`
+**Location:** `tests/fixtures/pom-eager-fixture.ts`
 
-**Purpose:** Full-featured fixture with eager page initialization
+**Purpose:** UI testing fixture with eager (upfront) page object initialization.
 
 **Provides:**
 ```typescript
-{
-    pomEager: POMEager,           // All pages created upfront
-    actions: AdvancedActionsHelper,
-    assert: AdvancedAssertionsHelper
+pomEagerFixture: {
+    pomEager: POMEager,     // All page objects created immediately in constructor
+    logger: winston.Logger  // Per-test Winston logger
 }
 ```
 
 **Key Features:**
-- ✅ All page objects created immediately during fixture setup
-- ✅ Automatic lifecycle logging (TEST START, PASSED/FAILED)
-- ✅ Uses HelperFactory for consistent helper creation
-- ✅ Error logging with error messages
+- ✅ All page objects created immediately in the POMEager constructor
+- ✅ Automatic lifecycle logging (TEST START, PASSED/FAILED/SKIPPED)
+- ✅ Error message logged on failure
+- ✅ Logger category follows convention: `Fixture-POMEager-{test_title}`
 
 **When to Use:**
 - Tests that use **multiple pages** (login → home → profile)
 - Tests where initialization errors should surface **immediately**
-- Tests where **all pages are likely to be used**
+- Tests where **most or all pages are likely to be used**
 
 **Code Example:**
 ```typescript
-import { test } from '../../../src/fixtures/pom-eager-fixture';
+import { test } from '../../fixtures/pom-eager-fixture';
 
-test('Complete user flow', async ({ pomEagerHelpers }) => {
-    const { pomEager, actions, assert } = pomEagerHelpers;
-
-    // All pages already created and ready
+test('valid login', async ({ pomEagerFixture }) => {
+    const { pomEager } = pomEagerFixture;
     await pomEager.getLoginPage().navigateToLogin();
     await pomEager.getLoginPage().login('Admin', 'admin123');
     await pomEager.getHomePage().assertProfileIcon();
-    // Use more pages as needed...
+});
+```
+
+**Destructuring from beforeEach:**
+```typescript
+test.beforeEach(async ({ pomEagerFixture: { pomEager } }) => {
+    await pomEager.getLoginPage().navigateToLogin();
 });
 ```
 
 **Used By:**
 - ✅ `tests/ui/specs/login-with-POManagerEager.spec.ts`
-- ✅ `tests/ui/specs/login-with-DD.spec.ts`
-- ✅ `tests/ui/specs/login-with-builder.spec.ts`
-- ✅ `tests/api/specs/network-interception.spec.ts`
 
 **Pros:**
-- ✅ Simple - no lazy loading complexity
-- ✅ Immediate error detection
-- ✅ All pages ready to use
+- ✅ Simple — no lazy loading complexity
+- ✅ Immediate error detection during page object construction
+- ✅ All pages ready to use from the first line of the test
 
 **Cons:**
 - ❌ Higher memory usage (all pages loaded even if unused)
-- ❌ Slower initialization for tests using few pages
+- ❌ Slightly slower initialization for tests using only one page
 
 ---
 
 ### 2. pom-lazy-fixture.ts 🦥
 
-**Location:** `src/fixtures/pom-lazy-fixture.ts`
+**Location:** `tests/fixtures/pom-lazy-fixture.ts`
 
-**Purpose:** Memory-efficient fixture with lazy page initialization
+**Purpose:** UI testing fixture with lazy (on-demand) page object initialization.
 
 **Provides:**
 ```typescript
-{
-    pomLazy: POMLazy,              // Pages created on first access
-    actions: AdvancedActionsHelper,
-    assert: AdvancedAssertionsHelper
+pomLazyFixture: {
+    pomLazy: POMLazy,       // Pages created only when their getter is first accessed
+    logger: winston.Logger  // Per-test Winston logger
 }
 ```
 
 **Key Features:**
-- ✅ Pages created **only when accessed** (on-demand)
-- ✅ Memory efficient - only used pages are instantiated
-- ✅ Automatic lifecycle logging
-- ✅ Uses HelperFactory for consistent helper creation
+- ✅ Pages created **only when accessed** for the first time via their getter
+- ✅ Memory efficient — only used pages are instantiated
+- ✅ Automatic lifecycle logging (TEST START, PASSED/FAILED/SKIPPED)
+- ✅ Logger category follows convention: `Fixture-POMLazy-{test_title}`
 
 **When to Use:**
-- Tests that use **only 1-2 pages**
-- Tests where **memory efficiency** is important
+- Tests that use **only 1–2 pages**
 - Tests where **faster initialization** is desired
+- Tests that demonstrate lazy loading behaviour explicitly
 
 **Code Example:**
 ```typescript
-import { test } from '../../../src/fixtures/pom-lazy-fixture';
+import { test } from '../../fixtures/pom-lazy-fixture';
 
-test('Simple login test', async ({ pomLazyHelpers }) => {
-    const { pomLazy, actions, assert } = pomLazyHelpers;
+test('login test', async ({ pomLazyFixture }) => {
+    const { pomLazy } = pomLazyFixture;
 
     // LoginPage created here (first access)
     await pomLazy.loginPage.navigateToLogin();
@@ -155,291 +162,126 @@ test('Simple login test', async ({ pomLazyHelpers }) => {
     // HomePage created here (first access)
     await pomLazy.homePage.assertProfileIcon();
 
-    // Other pages never created (not accessed)
+    // Any other pages remain un-created
 });
 ```
 
 **Used By:**
 - ✅ `tests/ui/specs/login-with-POManagerLazy.spec.ts`
-- ✅ `tests/ui/specs/login-test-with-helpers.spec.ts`
+- ✅ `tests/ui/specs/login-with-helpers.spec.ts`
+- ✅ `tests/ui/specs/login-with-DD.spec.ts`
+- ✅ `tests/ui/specs/login-with-builder.spec.ts`
 
 **Pros:**
 - ✅ Memory efficient (only used pages loaded)
-- ✅ Faster initialization
-- ✅ Good for tests using few pages
+- ✅ Faster fixture initialization
+- ✅ Suitable for the majority of tests
 
 **Cons:**
-- ❌ Slightly more complex (lazy loading logic)
-- ❌ Errors delayed until page accessed
+- ❌ Errors in page object construction are deferred until first access
+- ❌ Slightly more cognitive overhead (lazy evaluation)
 
 ---
 
-### 3. test-helpers-fixture.ts 🛠️ (UI & API)
+### 3. api-test-fixture.ts 🌐
 
-**Location:** `src/fixtures/test-helpers-fixture.ts`
+**Location:** `tests/fixtures/api-test-fixture.ts`
 
-**Purpose:** Minimal fixture providing helpers without POM - supports both UI and API testing
+**Purpose:** API testing fixture with automatic request/response logging and assertion statistics.
 
-**Provides TWO Fixtures:**
-
-#### 3.1 testHelpers (UI Testing)
+**Provides:**
 ```typescript
-{
-    actions: AdvancedActionsHelper,
-    assert: AdvancedAssertionsHelper
+apiTestFixture: {
+    apiActions: AdvancedAPIHelper,      // Logged HTTP methods (GET, POST, PUT, PATCH, DELETE, HEAD)
+    assert: AdvancedAssertionsHelper    // Logged assertions (screenshots disabled)
 }
 ```
 
 **Key Features:**
-- ✅ Lightweight - no page object overhead
-- ✅ Direct page interaction via Playwright Page object
-- ✅ Automatic lifecycle logging
-- ✅ Uses HelperFactory for consistent helper creation
+- ✅ **Automatic API request logging** — method, URL, description, body
+- ✅ **Automatic response logging** — status, status text, response body (JSON/text)
+- ✅ **Automatic assertion logging** — logged pass/fail for every assertion
+- ✅ **API call summary** in teardown (total requests count)
+- ✅ **Assertion statistics** in teardown (total, passed, failed)
+- ✅ Screenshots **disabled** (no browser context in pure API tests)
+- ✅ Created via `HelperFactory.createAPIHelpers()` for consistent instantiation
+- ✅ Logger category: `Fixture-API-{test_title}`
 
 **When to Use:**
-- Tests that **don't need POM** (e.g., simple UI checks)
-- Tests that interact with pages **directly**
-- Tests that need **logged actions/assertions only**
+- **API tests** that call REST endpoints directly via Playwright's `request` context
+- Tests that need automatic request/response logging
+- Tests that need logged assertions with pass/fail tracking
 
 **Code Example:**
 ```typescript
-import { test } from '../../../src/fixtures/test-helpers-fixture';
+import { test } from '../../fixtures/api-test-fixture';
 
-test('Direct page interaction', async ({ page, testHelpers }) => {
-    const { actions, assert } = testHelpers;
+test('Check get users response', async ({ apiTestFixture }) => {
+    const { apiActions, assert } = apiTestFixture;
 
-    // Direct page interaction (no POM)
-    await actions.goto('https://example.com');
-    await actions.click(page.locator('#login'), 'Click login button');
-    await assert.toBeVisible(page.locator('.error'), 'Error message visible');
-});
-```
-
----
-
-#### 3.2 apiTestHelpers (API Testing) 🆕
-
-```typescript
-{
-    apiActions: AdvancedAPIHelper,
-    assert: AdvancedAssertionsHelper
-}
-```
-
-**Key Features:**
-
-- ✅ **Automatic API request/response logging** via AdvancedAPIHelper
-- ✅ **Automatic assertion logging** via AdvancedAssertionsHelper
-- ✅ **Test lifecycle logging** (start, end, duration, summary)
-- ✅ **API call summary** (total requests, success/failure counts)
-- ✅ Uses HelperFactory for consistent helper creation
-- ✅ Supports all HTTP methods: GET, POST, PUT, PATCH, DELETE, HEAD
-
-**When to Use:**
-
-- **API tests** that need automatic logging
-- Tests that need **logged API calls and assertions**
-- Tests that want **API call summaries**
-
-**Code Example:**
-```typescript
-import { test } from '../../../src/fixtures/test-helpers-fixture';
-
-test('API test with automatic logging', async ({ apiTestHelpers }) => {
-    const { apiActions, assert } = apiTestHelpers;
-
-    // Automatic request/response logging
-    const response = await apiActions.get('https://api.example.com/users', 'Fetch all users');
+    const response = await apiActions.get(
+        'https://jsonplaceholder.typicode.com/posts',
+        'Fetch all posts'
+    );
     const jsonResponse = await response.json();
 
-    // Automatic assertion logging
     await assert.toEqual(response.status(), 200, 'Verify status is 200');
-    await assert.toEqual(jsonResponse.length, 100, 'Verify 100 users returned');
-
-    // Teardown automatically logs:
-    // ✅ API TEST PASSED (250ms)
-    // 📊 API Summary: 1 requests (1 successful, 0 failed)
-    // 📊 Total Assertions: 2 (Passed: 2, Failed: 0)
+    await assert.toEqual(jsonResponse.length, 100, 'Verify 100 posts returned');
 });
 ```
 
 **Supported HTTP Methods:**
-
 ```typescript
-// GET request
 await apiActions.get(url, description);
-
-// POST request
 await apiActions.post(url, data, description);
-
-// PUT request
 await apiActions.put(url, data, description);
-
-// PATCH request
 await apiActions.patch(url, data, description);
-
-// DELETE request
 await apiActions.delete(url, description);
-
-// HEAD request
 await apiActions.head(url, description);
 ```
 
-**Automatic Logging Output:**
-
+**Teardown Logging Output:**
 ```log
 ▶ API TEST START: "Check get users response success response"
-🌐 [API] GET https://jsonplaceholder.typicode.com/posts | Fetch all posts
-✅ [Response] Status: 200, Duration: 245ms
-✔️ [PASS] Verify status is 200 | Expected: 200, Actual: 200
-✔️ [PASS] Verify 100 posts returned | Expected: 100, Actual: 100
+[Step 1] 🌐 API GET: Fetch all posts
+  URL: https://jsonplaceholder.typicode.com/posts
+  ✓ Response: 200 OK
+Assertion #1 [HARD]: Verify status is 200
+Assertion #1: Verify status is 200 - PASSED (2ms)
+Assertion #2 [HARD]: Verify 100 posts returned
+Assertion #2: Verify 100 posts returned - PASSED (1ms)
 ✅ API TEST PASSED: "Check get users response success response" (250ms)
-📊 API Summary: 1 requests (1 successful, 0 failed)
-📊 Total Assertions: 2 (Passed: 2, Failed: 0)
+Total API Requests: 1
+Total Assertions: 2 (Passed: 2, Failed: 0)
 ```
 
----
+**Mixed Usage (browser + API):**
 
-**Used By:**
+Some tests in `network-interception.spec.ts` use both the `apiTestFixture` (for `assert`) and manually create `AdvancedActionsHelper` for browser interactions. This is intentional for tests that need both UI and API interaction:
 
-- ✅ `tests/api/specs/users-test.spec.ts` (API tests)
-- ✅ `tests/api/specs/network-interception.spec.ts` (API assertions)
-
-**Pros:**
-
-- ✅ Minimal overhead
-- ✅ Good for simple tests
-- ✅ No POM dependency
-- ✅ **Automatic API logging** (requests, responses, status, duration)
-- ✅ **Automatic assertion logging**
-- ✅ **API call summaries**
-
-**Cons:**
-
-- ❌ No page object abstraction (UI tests)
-- ❌ Tests couple to page structure (UI tests)
-
----
-
-### 4. test-fixtures.ts 🔧
-
-**Location:** `src/fixtures/test-fixtures.ts`
-
-**Purpose:** Modular fixture providing logger, POMLazy, and helpers as **separate fixtures**
-
-**Provides:**
 ```typescript
-{
-    logger: Log4jsLogger,          // Can be used independently
-    pomLazy: POMLazy,              // Can be used independently
-    actions: AdvancedActionsHelper, // Can be used independently
-    assert: AdvancedAssertionsHelper // Can be used independently
-}
-```
+import { test } from '../../fixtures/api-test-fixture';
+import { AdvancedActionsHelper } from '../../../src/utils/advanced-actions-helper';
 
-**Key Features:**
-- ✅ **Granular fixtures** - use only what you need
-- ✅ Separate logger fixture for flexibility
-- ✅ Detailed file/project logging
-- ✅ Uses HelperFactory for actions/assert
-
-**When to Use:**
-- Tests that need **only the logger**
-- Tests that need **only specific helpers**
-- Tests that want **maximum flexibility**
-
-**Code Example:**
-```typescript
-import { test } from '../../../src/fixtures/test-fixtures';
-
-// Use only logger
-test('Log-only test', async ({ page, logger }) => {
-    logger.info('Custom logging without POM or helpers');
-    await page.goto('https://example.com');
-    logger.info('Navigation complete');
-});
-
-// Use logger + pomLazy
-test('POM test', async ({ page, logger, pomLazy }) => {
-    logger.info('Starting test with POMLazy');
-    await pomLazy.loginPage.navigateToLogin();
-});
-
-// Use all fixtures
-test('Full test', async ({ page, logger, pomLazy, actions, assert }) => {
-    logger.info('Full feature test');
-    await pomLazy.loginPage.navigateToLogin();
-    await actions.click(pomLazy.loginPage.loginButton, 'Click login');
+test('mock api response', async ({ page, apiTestFixture }) => {
+    const { assert } = apiTestFixture;
+    const actions = new AdvancedActionsHelper(page, 'Mocking1: mock api response');
+    // ...
 });
 ```
 
 **Used By:**
-- ✅ `tests/ui/specs/login-helpers-log4js.spec.ts`
+- ✅ `tests/api/specs/users-test.spec.ts`
+- ✅ `tests/api/specs/network-interception.spec.ts`
 
 **Pros:**
-- ✅ Maximum flexibility (use only what you need)
-- ✅ Granular control
-- ✅ Separate logger access
+- ✅ Automatic API logging (no boilerplate)
+- ✅ Automatic assertion logging
+- ✅ Clean teardown summary
+- ✅ Screenshots correctly disabled for API context
 
 **Cons:**
-- ❌ More verbose (need to import multiple fixtures)
-- ❌ Can lead to inconsistent usage
-
----
-
-### 5. login-fixture.ts 🔐 (DOMAIN-SPECIFIC)
-
-**Location:** `tests/ui/fixtures/login-fixture.ts`
-
-**Purpose:** Custom fixture tailored **specifically for login tests**
-
-**Provides:**
-```typescript
-{
-    pomEager: POMEager,            // Pre-navigated to login page
-    loginPage: LoginPage,          // Standalone LoginPage
-    actions: AdvancedActionsHelper,
-    assert: AdvancedAssertionsHelper // With assertion stats logging
-}
-```
-
-**Key Features:**
-- ✅ **Auto-navigates** to login page in setup
-- ✅ Provides standalone `loginPage` for direct access
-- ✅ Logs **assertion statistics** in teardown
-- ⚠️ **Does NOT use HelperFactory** (manual instantiation)
-
-**When to Use:**
-- **Login-specific tests only**
-- Tests that always start on the login page
-- Tests that need assertion statistics
-
-**Code Example:**
-```typescript
-import { test } from '../fixtures/login-fixture';
-
-test('Login test with auto-navigation', async ({ pomEager, loginPage, actions, assert }) => {
-    // Already on login page (auto-navigated in fixture)
-    await loginPage.login('Admin', 'admin123');
-    await pomEager.getHomePage().assertProfileIcon();
-
-    // Teardown automatically logs:
-    // Total Assertions: 5 (Passed: 5, Failed: 0)
-});
-```
-
-**Used By:**
-- ✅ `tests/ui/specs/login-with-fixture.spec.ts`
-
-**Pros:**
-- ✅ Eliminates navigation boilerplate for login tests
-- ✅ Provides assertion statistics
-- ✅ Domain-specific (focused on login tests)
-
-**Cons:**
-- ❌ **NOT using HelperFactory** (inconsistent with other fixtures)
-- ❌ Limited to login-related tests only
-- ❌ Manual helper instantiation (harder to maintain)
+- ❌ No page object abstraction (not applicable for pure API tests)
 
 ---
 
@@ -447,493 +289,106 @@ test('Login test with auto-navigation', async ({ pomEager, loginPage, actions, a
 
 ### Fixture Usage by Test File
 
-| Test File | Fixture Used | Pages Used | Justification |
-|-----------|-------------|------------|---------------|
-| `login-with-POManagerEager.spec.ts` | pom-eager-fixture | Login, Home | ✅ Multiple pages, eager is appropriate |
-| `login-with-POManagerLazy.spec.ts` | pom-lazy-fixture | Login, Home | ✅ Demonstrates lazy loading pattern |
-| `login-test-with-helpers.spec.ts` | pom-lazy-fixture | Login | ✅ Only login page, lazy is efficient |
-| `login-with-DD.spec.ts` | pom-lazy-fixture | Login (mostly) | ✅ Optimized to use lazy loading |
-| `login-with-builder.spec.ts` | pom-lazy-fixture | Login (mostly) | ✅ Optimized to use lazy loading |
-| `login-helpers-log4js.spec.ts` | test-fixtures | Login, Home | ✅ Demonstrates granular fixture usage |
-| `login-with-fixture.spec.ts` | login-fixture | Login | ✅ Now using HelperFactory for consistency |
-| `network-interception.spec.ts` | test-helpers-fixture | None (API test) | ✅ Optimized for API testing |
-| `users-test.spec.ts` | test-helpers-fixture (apiTestHelpers) | None (API test) | ✅ Using apiTestHelpers for automatic API logging |
+| Test File | Fixture Used | Fixture Key | Purpose |
+|-----------|-------------|-------------|---------|
+| `login-with-POManagerEager.spec.ts` | `pom-eager-fixture` | `pomEagerFixture` | Demonstrates POMEager — all pages created upfront |
+| `login-with-POManagerLazy.spec.ts` | `pom-lazy-fixture` | `pomLazyFixture` | Demonstrates POMLazy — pages created on first access |
+| `login-with-helpers.spec.ts` | `pom-lazy-fixture` | `pomLazyFixture` | Best-practice POM patterns and anti-patterns |
+| `login-with-DD.spec.ts` | `pom-lazy-fixture` | `pomLazyFixture` | Data-driven login tests from JSON/TS data files |
+| `login-with-builder.spec.ts` | `pom-lazy-fixture` | `pomLazyFixture` | Builder pattern test data creation |
+| `users-test.spec.ts` | `api-test-fixture` | `apiTestFixture` | REST API tests with automatic logging |
+| `network-interception.spec.ts` | `api-test-fixture` | `apiTestFixture` | Network mocking, interception, and request control |
 
 ### Observations
 
 **✅ Good Practices:**
-1. `login-with-POManagerEager.spec.ts` - Correctly uses eager for multi-page tests
-2. `login-test-with-helpers.spec.ts` - Correctly uses lazy for single-page tests
-3. `test-helpers-fixture` now properly utilized by API tests (2 tests using it)
-4. All fixtures now consistently use HelperFactory pattern
-5. Fixture selection optimized based on actual page usage
+1. `login-with-POManagerEager.spec.ts` — Correctly uses eager for multi-page tests
+2. `login-with-helpers.spec.ts`, `login-with-DD.spec.ts`, `login-with-builder.spec.ts` — Correctly use lazy (single or few pages)
+3. `users-test.spec.ts` — Uses `apiTestFixture` for full API logging without POM overhead
+4. All fixtures use `HelperFactory` for consistent helper creation
 
-**✅ Recent Improvements:**
-1. ✅ **login-fixture** refactored to use HelperFactory
-2. ✅ **network-interception.spec.ts** migrated to test-helpers-fixture
-3. ✅ **users-test.spec.ts** now uses test-helpers-fixture with **apiTestHelpers** for automatic API logging
-4. ✅ **login-with-DD.spec.ts** and **login-with-builder.spec.ts** optimized to use pom-lazy
-5. ✅ **AdvancedAPIHelper** created to provide automatic API request/response logging
-6. ✅ **apiTestHelpers fixture** added to test-helpers-fixture for API testing
+**Fixture Distribution:**
+- **pom-eager-fixture**: 1 test file (multi-page flows)
+- **pom-lazy-fixture**: 4 test files (majority of UI tests)
+- **api-test-fixture**: 2 test files (all API tests)
 
 ---
 
 ## DRY & SOLID Analysis
 
-### DRY (Don't Repeat Yourself) Violations
+### DRY (Don't Repeat Yourself)
 
-#### ✅ Problem 1: Helper Instantiation Duplication — RESOLVED
+#### ✅ Helper Instantiation — Consistent via HelperFactory
 
-**Previously (login-fixture.ts VIOLATION):**
+All fixtures delegate to `HelperFactory` for creating helpers:
+
 ```typescript
-// Manual instantiation (NOT DRY)
-const actions = new AdvancedActionsHelper(page, testInfo.title);
-const assert = new AdvancedAssertionsHelper(page, testInfo.title);
+// api-test-fixture.ts
+const { apiActions, assert } = HelperFactory.createAPIHelpers(request, page, testInfo.title);
 ```
 
-**Now (ALL fixtures including login-fixture - CORRECT):**
-```typescript
-// Using HelperFactory (DRY)
-const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-```
+This means if constructor signatures change, only `HelperFactory` needs updating.
 
-**Impact:** If helper constructor signature changes, login-fixture breaks while others don't.
+#### ✅ Lifecycle Logging — Consistent Across All Fixtures
 
-**Recommendation:** ✅ **Refactor login-fixture to use HelperFactory**
-
----
-
-#### ❌ Problem 2: Fixture Overlap
-
-**Overlap between fixtures:**
+All three fixtures follow the same teardown logging pattern:
 
 ```typescript
-// pom-eager-fixture provides:
-{ pomEager, actions, assert }
-
-// test-fixtures provides (separately):
-{ logger, pomLazy, actions, assert }
-
-// login-fixture provides:
-{ pomEager, loginPage, actions, assert }
-```
-
-All three provide `actions` and `assert` but in different ways.
-
-**Impact:** Inconsistent helper creation across fixtures.
-
-**Recommendation:** ✅ **All fixtures should use HelperFactory**
-
----
-
-#### ✅ Problem 3: Page Objects Helper Instantiation — RESOLVED (2026-02-15)
-
-**Previously (Page Objects VIOLATION):**
-
-All page objects were manually instantiating helpers:
-
-```typescript
-// HomePage.ts - Manual instantiation (NOT DRY)
-this.actions = new AdvancedActionsHelper(page, testName || 'HomePage');
-this.assert = new AdvancedAssertionsHelper(page, testName || 'HomePage');
-
-// LoginPage.ts - Manual instantiation (NOT DRY)
-this.actions = new AdvancedActionsHelper(page, `${testName}-actions`);
-this.assert = new AdvancedAssertionsHelper(page, `${testName}-assertions`);
-
-// LoginPage4js.ts - Manual instantiation (NOT DRY)
-this.actions = new AdvancedActionsHelper(page, `${testName}-actions`);
-this.assert = new AdvancedAssertionsHelper(page, `${testName}-assertions`);
-```
-
-**Now (ALL Page Objects - CORRECT):**
-
-```typescript
-// All page objects now use HelperFactory (DRY)
-const helpers = HelperFactory.createHelpers(page, testName);
-this.actions = helpers.actions;
-this.assert = helpers.assert;
-```
-
-**Files Refactored:**
-- ✅ `src/pages/home-page.ts`
-- ✅ `src/pages/login-page.ts`
-- ✅ `src/pages/login-page-log4js.ts`
-
-**Impact:**
-- **Before**: 3 page objects with manual instantiation = 6 lines of duplicated code
-- **After**: 3 page objects using HelperFactory = Single source of truth
-- **Benefit**: If helper constructor changes, only HelperFactory needs updating
-
-**Recommendation:** ✅ **COMPLETED - All page objects now use HelperFactory**
-
----
-
-#### 📚 Best Practice: Type-Only Imports
-
-**Why do we need both helper imports AND HelperFactory?**
-
-Page objects import helper classes in two ways, serving different purposes:
-
-```typescript
-// Type-only imports (compile-time - for TypeScript type checking)
-import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-
-// Runtime import (for creating instances)
-import { HelperFactory } from '../factories/helper-factory';
-
-export class LoginPage {
-    // These type annotations need the type imports above
-    readonly actions: AdvancedActionsHelper;   // ← Type annotation
-    readonly assert: AdvancedAssertionsHelper;  // ← Type annotation
-
-    constructor(page: Page, testName: string) {
-        // This runtime code uses HelperFactory
-        const helpers = HelperFactory.createHelpers(page, testName);
-        this.actions = helpers.actions;  // ← Runtime value
-        this.assert = helpers.assert;    // ← Runtime value
-    }
+if (testInfo.status === 'passed') {
+    logger.info(`✅ TEST PASSED: "${testInfo.title}" (${testInfo.duration}ms)`);
+} else if (testInfo.status === 'failed') {
+    logger.error(`❌ TEST FAILED: "${testInfo.title}" (${testInfo.duration}ms)`);
+    if (testInfo.error) logger.error(`   Error: ${testInfo.error.message}`);
+} else if (testInfo.status === 'skipped') {
+    logger.warn(`⏭ TEST SKIPPED: "${testInfo.title}"`);
 }
 ```
 
-**Two Different Purposes:**
+#### ✅ Page Objects Own Their Helpers
 
-1. **Type-only imports** (`import type`):
-   - Used for TypeScript type annotations
-   - Provide IntelliSense/autocomplete
-   - Enable compile-time type checking
-   - **Erased at runtime** (no JavaScript code generated)
-
-2. **Runtime imports** (regular `import`):
-   - Used to create actual instances
-   - Needed for function calls at runtime
-   - Included in compiled JavaScript
-
-**Why use `import type`?**
-
-✅ **Makes intent explicit**: Clearly shows "this is just for types, not runtime"
-✅ **Better tree-shaking**: Bundlers know these can be safely removed
-✅ **Clearer code**: Separates compile-time concerns from runtime concerns
-✅ **Prevents circular dependencies**: Type-only imports don't create runtime cycles
-
-**Alternative Approaches:**
-
-If you want to avoid separate imports entirely, you could use:
+Page objects (`LoginPage`, `HomePage`) create their own `AdvancedActionsHelper` and `AdvancedAssertionsHelper` internally. Tests do not need to pass helpers around — they simply call page object methods:
 
 ```typescript
-import { HelperFactory, type HelperSet } from '../factories/helper-factory';
-
-export class LoginPage {
-    readonly actions: HelperSet['actions'];  // Using indexed type
-    readonly assert: HelperSet['assert'];    // Using indexed type
-}
+// Clean: tests call methods, not helpers
+await pomLazy.loginPage.login('Admin', 'admin123');
+await pomLazy.homePage.assertProfileIcon();
 ```
 
-But the current approach (type-only imports) is more explicit and conventional.
+### SOLID Principles
 
----
+#### ✅ Single Responsibility (SRP)
 
-### SOLID Principles Analysis
+Each fixture has one responsibility:
+- `pom-eager-fixture` → Eager POM lifecycle management
+- `pom-lazy-fixture` → Lazy POM lifecycle management
+- `api-test-fixture` → API helper lifecycle management
 
-#### ✅ Single Responsibility Principle (SRP) - GOOD
+#### ✅ Open/Closed (OCP)
 
-Each fixture has a clear, single responsibility:
-- `pom-eager-fixture` → Eager page initialization
-- `pom-lazy-fixture` → Lazy page initialization
-- `test-helpers-fixture` → Helpers only, no POM
-- `test-fixtures` → Granular fixtures for flexibility
-- `login-fixture` → Login-specific setup
+- Fixtures are open for extension (new fixtures can be created)
+- `HelperFactory` allows extending helpers without modifying fixtures
+- New page objects can be added to `POMEager`/`POMLazy` without fixture changes
 
-**Verdict:** ✅ **SOLID compliant**
+#### ✅ Liskov Substitution (LSP)
 
----
-
-#### ⚠️ Open/Closed Principle (OCP) - MIXED
-
-**Good:**
-- Fixtures are open for extension (can create new fixtures)
-- HelperFactory allows extending helpers without modifying fixtures
-
-**Problem:**
-- `login-fixture` is tightly coupled to login domain (hard to extend)
-
-**Recommendation:** ✅ **Make login-fixture more generic or use composition**
-
----
-
-#### ✅ Liskov Substitution Principle (LSP) - GOOD
-
-All fixtures extending `base.extend<...>` can be substituted:
-```typescript
-// Can swap fixtures without breaking tests (if compatible)
-import { test } from '../fixtures/pom-eager-fixture';
-// vs
-import { test } from '../fixtures/pom-lazy-fixture';
-```
-
-**Verdict:** ✅ **SOLID compliant**
-
----
-
-#### ⚠️ Interface Segregation Principle (ISP) - MIXED
-
-**Good:**
-- `test-fixtures` provides granular fixtures (use only what you need)
-- `test-helpers-fixture` provides minimal interface (helpers only)
-
-**Problem:**
-- `pom-eager-fixture` and `pom-lazy-fixture` bundle POM + helpers (can't get POM without helpers)
-
-**Recommendation:** 🤔 **Consider separating POM from helpers if needed**
-
----
-
-#### ✅ Dependency Inversion Principle (DIP) - GOOD
-
-All fixtures depend on abstractions (HelperFactory, PageFactory) not concrete implementations.
-
-**Verdict:** ✅ **SOLID compliant**
-
----
-
-## Recommendations
-
-Based on DRY and SOLID analysis, here are actionable recommendations:
-
----
-
-### 🔴 HIGH PRIORITY
-
-#### 1. Refactor login-fixture to use HelperFactory
-
-**Problem:** Manual helper instantiation violates DRY
-
-**Solution:**
-```typescript
-// BEFORE (login-fixture.ts - CURRENT)
-const actions = new AdvancedActionsHelper(page, testInfo.title);
-const assert = new AdvancedAssertionsHelper(page, testInfo.title);
-
-// AFTER (RECOMMENDED)
-const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-```
-
-**Impact:** Consistency across all fixtures, easier maintenance
-
----
-
-#### 2. Use test-helpers-fixture for API Tests
-
-**Problem:** API tests don't need POM but use pom-eager-fixture
-
-**Current:**
-```typescript
-// network-interception.spec.ts (API test using POM fixture)
-import { test } from '../../../src/fixtures/pom-eager-fixture';
-
-test('API test', async ({ page, pomEagerHelpers }) => {
-    const { actions, assert } = pomEagerHelpers;
-    // Never uses pomEager...
-});
-```
-
-**Recommended:**
-```typescript
-// Better approach
-import { test } from '../../../src/fixtures/test-helpers-fixture';
-
-test('API test', async ({ page, testHelpers }) => {
-    const { actions, assert } = testHelpers;
-    // Cleaner - no unused POM
-});
-```
-
-**Impact:** Lighter fixtures for API tests, clearer intent
-
----
-
-#### 3. Add test-helpers-fixture to users-test.spec.ts
-
-**Problem:** API test has no fixture (no logging, no helpers)
-
-**Current:**
-```typescript
-// users-test.spec.ts
-import { test, expect } from '@playwright/test'; // No custom fixture
-```
-
-**Recommended:**
-```typescript
-import { test, expect } from '../../../src/fixtures/test-helpers-fixture';
-
-test('API test', async ({ testHelpers }) => {
-    const { actions, assert } = testHelpers;
-    // Now has logging and helpers
-});
-```
-
----
-
-### 🟡 MEDIUM PRIORITY
-
-#### 4. Optimize Fixture Selection for Single-Page Tests
-
-**Problem:** Some tests use pom-eager when they only use one page
-
-**Tests to optimize:**
-- `login-with-DD.spec.ts` → Switch to pom-lazy-fixture
-- `login-with-builder.spec.ts` → Switch to pom-lazy-fixture
-
-**Benefit:** Faster initialization, lower memory
-
----
-
-#### 5. Consider Merging pom-eager and pom-lazy Fixtures
-
-**Idea:** Single fixture with **strategy parameter**
+Both UI fixtures (`pom-eager`, `pom-lazy`) can substitute for each other if a test works with the `POMLazy` or `POMEager` API respectively:
 
 ```typescript
-// Proposed unified fixture
-export const test = base.extend<{ pom: POMHelpers }>({
-    pom: async ({ page }, use, testInfo) => {
-        // Read from config or test metadata
-        const strategy = testInfo.annotations.find(a => a.type === 'pomStrategy')?.description || 'eager';
-
-        const pomManager = strategy === 'lazy'
-            ? new POMLazy(page, testInfo.title)
-            : new POMEager(page, testInfo.title);
-
-        const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-
-        await use({ pomManager, actions, assert });
-    }
-});
-
-// Usage
-test('my test @pomStrategy=lazy', async ({ pom }) => {
-    // Uses lazy strategy
-});
+// Both work identically from the test's perspective
+import { test } from '../../fixtures/pom-eager-fixture';
+// or
+import { test } from '../../fixtures/pom-lazy-fixture';
 ```
 
-**Pros:**
-- ✅ Single fixture to maintain
-- ✅ DRY - no duplication
-- ✅ Flexible - choose strategy per test
+#### ✅ Interface Segregation (ISP)
 
-**Cons:**
-- ❌ More complex
-- ❌ Less explicit (strategy hidden in annotation)
+- UI fixtures provide only what UI tests need: POM manager + logger
+- API fixture provides only what API tests need: apiActions + assert
+- No fixture bundles unnecessary dependencies
 
-**Recommendation:** 🤔 **Keep separate for now** (explicit is better than implicit)
+#### ✅ Dependency Inversion (DIP)
 
----
-
-### 🟢 LOW PRIORITY
-
-#### 6. Add PageFactory to POM Managers
-
-**Enhancement:** POM Managers could use PageFactory internally
-
-```typescript
-export class POMEager {
-    private readonly loginPage: LoginPage;
-
-    constructor(page: Page, testName: string) {
-        // Using PageFactory for consistent creation
-        this.loginPage = PageFactory.createLoginPage(page, testName);
-    }
-}
-```
-
-**Benefit:** Centralized page creation logic
-
----
-
-#### 7. Consider Domain-Specific Fixture Base
-
-**Idea:** Create base fixture for domain-specific fixtures
-
-```typescript
-// src/fixtures/base/domain-fixture-base.ts
-export function createDomainFixture<T>(config: DomainFixtureConfig<T>) {
-    return base.extend<T>({
-        [config.name]: async ({ page }, use, testInfo) => {
-            // Common setup
-            const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-
-            // Domain-specific setup
-            await config.setup(page, testInfo);
-
-            await use(config.provide({ page, actions, assert, testInfo }));
-
-            // Domain-specific teardown
-            await config.teardown(testInfo);
-        }
-    });
-}
-
-// Usage for login-specific fixture
-const loginFixture = createDomainFixture({
-    name: 'loginHelpers',
-    setup: async (page) => {
-        const pomEager = new POMEager(page, testInfo.title);
-        await pomEager.getLoginPage().navigateToLogin();
-    },
-    provide: ({ pomEager, actions, assert }) => ({ pomEager, actions, assert }),
-    teardown: (testInfo) => { /* log assertion stats */ }
-});
-```
-
----
-
-## Migration Guide
-
-### Migrating login-fixture to use HelperFactory
-
-**Step 1: Update imports**
-```typescript
-import { HelperFactory } from '../../../src/factories/helper-factory';
-```
-
-**Step 2: Replace manual instantiation**
-```typescript
-// BEFORE
-const actions = new AdvancedActionsHelper(page, testInfo.title);
-const assert = new AdvancedAssertionsHelper(page, testInfo.title);
-
-// AFTER
-const { actions, assert } = HelperFactory.createHelpers(page, testInfo.title);
-```
-
-**Step 3: Test and verify**
-```bash
-npx playwright test tests/ui/specs/login-with-fixture.spec.ts
-```
-
----
-
-### Migrating API Tests to test-helpers-fixture
-
-**Step 1: Update imports**
-```typescript
-// BEFORE
-import { test } from '../../../src/fixtures/pom-eager-fixture';
-
-// AFTER
-import { test } from '../../../src/fixtures/test-helpers-fixture';
-```
-
-**Step 2: Update fixture usage**
-```typescript
-// BEFORE
-test('API test', async ({ page, pomEagerHelpers }) => {
-    const { actions, assert } = pomEagerHelpers;
-
-// AFTER
-test('API test', async ({ page, testHelpers }) => {
-    const { actions, assert } = testHelpers;
-```
+All fixtures depend on abstractions (`HelperFactory`) rather than directly constructing concrete helper classes.
 
 ---
 
@@ -947,27 +402,22 @@ test('API test', async ({ page, testHelpers }) => {
 └─────────────────────────────────────────────────────────────┘
                             ↓
         ┌───────────────────────────────────┐
-        │   Do you need Page Objects?       │
+        │   Is this a UI test or API test?  │
         └───────────────────────────────────┘
                  ↓                    ↓
-               YES                   NO
+               UI                    API
                  ↓                    ↓
     ┌────────────────────┐    ┌────────────────────┐
-    │ How many pages?    │    │ Use:               │
-    └────────────────────┘    │ test-helpers-      │
-         ↓           ↓         │ fixture.ts         │
-    Multiple    1-2 pages      └────────────────────┘
+    │ How many pages?    │    │ api-test-fixture   │
+    └────────────────────┘    └────────────────────┘
+         ↓           ↓
+    Multiple    1-2 pages
          ↓           ↓
     ┌──────────┐ ┌──────────┐
-    │ Use:     │ │ Use:     │
     │ pom-     │ │ pom-     │
     │ eager-   │ │ lazy-    │
     │ fixture  │ │ fixture  │
     └──────────┘ └──────────┘
-
-Special Cases:
-• Login tests that auto-navigate? → login-fixture.ts
-• Need granular control? → test-fixtures.ts
 ```
 
 ---
@@ -976,73 +426,25 @@ Special Cases:
 
 ### Current State
 
-**Total Fixtures:** 5
+**Total Fixtures:** 3
 
-| Fixture | Using HelperFactory? | Used By # Tests | Status |
-|---------|---------------------|-----------------|--------|
-| pom-eager-fixture | ✅ Yes | 2 tests | ✅ Good |
-| pom-lazy-fixture | ✅ Yes | 4 tests | ✅ Good |
-| test-helpers-fixture | ✅ Yes | 2 tests | ✅ Good |
-| test-fixtures | ✅ Yes | 1 test | ✅ Good |
-| login-fixture | ✅ **Yes** | 1 test | ✅ **Refactored** |
+| Fixture | Location | Using HelperFactory? | Used By # Files | Status |
+|---------|----------|---------------------|-----------------|--------|
+| `pom-eager-fixture` | `tests/fixtures/` | ✅ Internally via POMEager | 1 | ✅ Good |
+| `pom-lazy-fixture` | `tests/fixtures/` | ✅ Internally via POMLazy | 4 | ✅ Good |
+| `api-test-fixture` | `tests/fixtures/` | ✅ Yes (createAPIHelpers) | 2 | ✅ Good |
 
----
+### Key Design Decisions
 
-### Action Items
+1. **Fixtures provide POM manager + logger only** — helpers (actions/assert) live inside page objects, not at fixture level. This keeps fixtures lean and page objects self-contained.
 
-**✅ Priority 1 (COMPLETED):**
-1. ✅ Refactor login-fixture to use HelperFactory — **DONE**
-2. ✅ Migrate network-interception.spec.ts to test-helpers-fixture — **DONE**
-3. ✅ Add test-helpers-fixture to users-test.spec.ts — **DONE**
+2. **Separate UI and API fixtures** — clear separation of concerns, no POM overhead for API tests.
 
-**✅ Priority 2 (COMPLETED):**
-4. ✅ Switch login-with-DD and login-with-builder to pom-lazy — **DONE**
-5. ⏳ Document fixture selection guidelines in README — **Pending**
+3. **All fixtures under `tests/fixtures/`** — co-located with test code, not mixed with `src/` framework utilities.
 
-**Priority 3 (Consider Later):**
-6. ⏳ Add PageFactory to POM Managers
-7. ⏳ Evaluate unified POM fixture with strategy pattern
-
----
-
-**Completed Changes Summary:**
-
-✅ **All 5 fixtures now use HelperFactory consistently**
-✅ **All 3 page objects now use HelperFactory consistently**
-✅ **API tests migrated to test-helpers-fixture with apiTestHelpers**
-✅ **AdvancedAPIHelper created for automatic API logging**
-✅ **Single-page tests optimized to use pom-lazy**
-✅ **Fixture distribution optimized across test suite**
-✅ **100% HelperFactory adoption across entire framework**
-
-**Files Refactored/Created (Total: 12):**
-
-**Fixtures (5):**
-1. `src/fixtures/pom-eager-fixture.ts`
-2. `src/fixtures/pom-lazy-fixture.ts`
-3. `src/fixtures/test-helpers-fixture.ts` (now includes apiTestHelpers)
-4. `src/fixtures/test-fixtures.ts`
-5. `tests/ui/fixtures/login-fixture.ts`
-
-**Page Objects (3):**
-6. `src/pages/home-page.ts`
-7. `src/pages/login-page.ts`
-8. `src/pages/login-page-log4js.ts`
-
-**Helpers (2):**
-9. `src/utils/advanced-api-helper.ts` (NEW - API testing helper)
-10. `src/factories/helper-factory.ts` (extended for API helpers)
-
-**Tests (2):**
-11. `tests/api/specs/users-test.spec.ts` (updated to use apiTestHelpers)
-12. `tests/api/specs/network-interception.spec.ts` (migrated to test-helpers-fixture)
-
-**Next Steps:**
-1. ⏳ Document fixture selection guidelines in README
-2. ⏳ Monitor fixture usage and collect feedback
-3. ⏳ Consider Phase 3 enhancements (unified POM fixture)
+4. **HelperFactory used by API fixture** — consistent helper creation, screenshots disabled automatically for API context.
 
 ---
 
 **Document Maintained By:** Test Automation Team
-**Version:** 1.0
+**Version:** 2.0

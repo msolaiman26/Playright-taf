@@ -3,17 +3,23 @@ import fs from "fs";
 import path from "path";
 import winston from "winston";
 import { Logger } from "../utils/Logger";
+import { StepRunner } from "../utils/step-runner";
 
 /**
  * AdvancedActionsHelper — A wrapper around common Playwright page interactions
  * that adds comprehensive logging, step tracking, and failure diagnostics.
  *
  * Features:
- *   - Logging via log4js: every action is logged to console, file, and HTML report
- *   - Automatic step numbering (Step 1, Step 2, ...) for easy traceability
+ *   - Logging via Winston: every action is logged to console and file
+ *   - Playwright test.step() integration: every action appears in the HTML report
+ *   - Automatic step numbering (Step 1, Step 2, ...) in log files for traceability
  *   - Performance timing: each action records its duration in milliseconds
  *   - Screenshot on failure: when an action throws, a full-page screenshot is saved
  *   - Sensitive data masking: the fill() method can mask passwords in log output
+ *
+ * Ownership of step identity is split by concern:
+ *   - StepRunner (Playwright report): uses the plain description as the step title
+ *   - Winston (log files): prefixes with "Step N:" for sequential ordering in text
  *
  * Each Page Object (LoginPage, HomePage, etc.) creates its own instance of this class
  * so that logs are separated per test and per page.
@@ -21,7 +27,7 @@ import { Logger } from "../utils/Logger";
 export class AdvancedActionsHelper {
     readonly page: Page;
     private readonly logger: winston.Logger;
-    private stepCounter: number = 0;       // Auto-incrementing counter for sequential step labels
+    private stepCounter: number = 0;       // Auto-incrementing counter for sequential step labels in log files
     private screenshotDir: string;          // Directory where failure screenshots are stored
 
     /**
@@ -82,19 +88,20 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || `Navigate to ${url}`;
 
-        this.logger.info(`${step}: ${logMessage}`);
-        const startTime = Date.now();
+        await StepRunner.run(logMessage, async () => {
+            const startTime = Date.now();
 
-        try {
-            await this.page.goto(url, { waitUntil: 'domcontentloaded' });
-            const duration = Date.now() - startTime;
-            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
-            await this.captureFailureScreenshot(logMessage);
-            throw error;
-        }
+            try {
+                await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+                const duration = Date.now() - startTime;
+                this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
+                await this.captureFailureScreenshot(logMessage);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -109,24 +116,24 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Click element';
 
-        this.logger.info(`${step}: ${logMessage}`);
-        const startTime = Date.now();
+        await StepRunner.run(logMessage, async () => {
+            const startTime = Date.now();
 
-        try {
-            // Log element state before clicking
-            const isVisible = await locator.isVisible();
-            const isEnabled = await locator.isEnabled();
-            this.logger.debug(`Element state - Visible: ${isVisible}, Enabled: ${isEnabled}`);
+            try {
+                const isVisible = await locator.isVisible();
+                const isEnabled = await locator.isEnabled();
+                this.logger.debug(`Element state - Visible: ${isVisible}, Enabled: ${isEnabled}`);
 
-            await locator.click();
-            const duration = Date.now() - startTime;
-            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
-            await this.captureFailureScreenshot(logMessage);
-            throw error;
-        }
+                await locator.click();
+                const duration = Date.now() - startTime;
+                this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
+                await this.captureFailureScreenshot(logMessage);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -143,21 +150,22 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Fill input field';
 
-        this.logger.info(`${step}: ${logMessage}`);
-        const displayValue = isSensitive ? '***MASKED***' : `"${value}"`;
-        this.logger.debug(`Input value: ${displayValue}`);
-        const startTime = Date.now();
+        await StepRunner.run(logMessage, async () => {
+            const displayValue = isSensitive ? '***MASKED***' : `"${value}"`;
+            this.logger.debug(`Input value: ${displayValue}`);
+            const startTime = Date.now();
 
-        try {
-            await locator.fill(value);
-            const duration = Date.now() - startTime;
-            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
-            await this.captureFailureScreenshot(logMessage);
-            throw error;
-        }
+            try {
+                await locator.fill(value);
+                const duration = Date.now() - startTime;
+                this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
+                await this.captureFailureScreenshot(logMessage);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -172,19 +180,21 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Wait for element to be visible';
 
-        this.logger.info(`${step}: ${logMessage} (timeout: ${timeout}ms)`);
-        const startTime = Date.now();
+        await StepRunner.run(logMessage, async () => {
+            this.logger.debug(`Timeout: ${timeout}ms`);
+            const startTime = Date.now();
 
-        try {
-            await locator.waitFor({ state: 'visible', timeout });
-            const duration = Date.now() - startTime;
-            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Timeout or Error: ${error}`);
-            await this.captureFailureScreenshot(logMessage);
-            throw error;
-        }
+            try {
+                await locator.waitFor({ state: 'visible', timeout });
+                const duration = Date.now() - startTime;
+                this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Timeout or Error: ${error}`);
+                await this.captureFailureScreenshot(logMessage);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -199,21 +209,22 @@ export class AdvancedActionsHelper {
         const step = `Step ${this.stepCounter}`;
         const logMessage = description || 'Get text content';
 
-        this.logger.info(`${step}: ${logMessage}`);
-        const startTime = Date.now();
+        return await StepRunner.run(logMessage, async () => {
+            const startTime = Date.now();
 
-        try {
-            const text = await locator.textContent() || '';
-            const duration = Date.now() - startTime;
-            this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
-            this.logger.debug(`Retrieved text: "${text}"`);
-            return text;
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
-            await this.captureFailureScreenshot(logMessage);
-            throw error;
-        }
+            try {
+                const text = await locator.textContent() || '';
+                const duration = Date.now() - startTime;
+                this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);
+                this.logger.debug(`Retrieved text: "${text}"`);
+                return text;
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                this.logger.error(`${step}: ${logMessage} - FAILED (${duration}ms) - Error: ${error}`);
+                await this.captureFailureScreenshot(logMessage);
+                throw error;
+            }
+        });
     }
 
     /**
@@ -227,12 +238,17 @@ export class AdvancedActionsHelper {
     async logAssertion(description: string, expected: any, actual: any, passed: boolean) {
         this.stepCounter++;
         const step = `Step ${this.stepCounter}`;
-        this.logger.info(`${step}: ASSERTION - ${description}`);
-        this.logger.debug(`Expected: ${JSON.stringify(expected)}, Actual: ${JSON.stringify(actual)}, Passed: ${passed}`);
 
-        if (!passed) {
-            await this.captureFailureScreenshot(description);
-        }
+        await StepRunner.run(`ASSERTION - ${description}`, async () => {
+            this.logger.debug(`Expected: ${JSON.stringify(expected)}, Actual: ${JSON.stringify(actual)}, Passed: ${passed}`);
+
+            if (!passed) {
+                this.logger.error(`${step}: ASSERTION FAILED - ${description}`);
+                await this.captureFailureScreenshot(description);
+            } else {
+                this.logger.info(`${step}: ASSERTION PASSED - ${description}`);
+            }
+        });
     }
 
     /**
