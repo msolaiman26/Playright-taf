@@ -11,7 +11,7 @@
  * Includes all four lifecycle hooks (beforeAll, beforeEach, afterEach, afterAll)
  * for comprehensive test lifecycle logging.
  *
- * Fixture provides: pomLazyHelpers { pomLazy, actions, assert }
+ * Fixture provides: pomLazyFixture { pomLazy, logger }
  */
 import { test } from '../../fixtures/pom-lazy-fixture';
 import { Logger } from "../../../src/utils/Logger";
@@ -25,16 +25,6 @@ test.beforeAll('This actions run before all tests',async () =>{
     logger.info('This actions run before all tests');
 })
 
-/** Runs before each individual test — logs the test name */
-test.beforeEach('This actions run before every test',async ({page}, testInfo) =>{
-    logger.info(`test starts for: ${testInfo.title}`);
-})
-
-/** Runs after each individual test — logs the test name */
-test.afterEach('This actions run after every test',async ({page}, testInfo) =>{
-    logger.info(`test ends for: ${testInfo.title}`);
-})
-
 /** Runs once after all tests in this file */
 test.afterAll('This actions run after all tests',async () =>{
     logger.info('This actions run after all tests');
@@ -43,18 +33,19 @@ test.afterAll('This actions run after all tests',async () =>{
 // ==================== Test Cases ======================
 test.describe('Login test', ()=> {
     /** Valid login using lazy page objects stored in local variables for readability */
-    test('valid login', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('valid login', async ({ pomLazyFixture }) => {
+        const { pomLazy, logger } = pomLazyFixture; // logger from fixture is scoped to this test
         const loginPage = pomLazy.loginPage;   // First access — triggers lazy creation of LoginPage
         const homePage = pomLazy.homePage;      // First access — triggers lazy creation of HomePage
         await loginPage.navigateToLogin();
+        logger.info('Logging in with valid credentials');
         await loginPage.login('Admin', 'admin123');
         await homePage.assertProfileIcon();     // Verifies the dashboard loaded successfully
     });
 
     /** Invalid login: enters wrong password and verifies the error message */
-    test('invalid login', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('invalid login', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
         const loginPage = pomLazy.loginPage;
         await loginPage.navigateToLogin();
         await loginPage.login('Admin', 'admin12');

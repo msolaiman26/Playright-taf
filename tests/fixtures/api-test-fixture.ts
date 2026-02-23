@@ -8,7 +8,7 @@ import { HelperFactory } from '../../src/factories/helper-factory';
  * Type definition for API test helpers.
  * Provides apiActions for logged API calls and assert for assertions.
  */
-type APITestHelpers = {
+type APITestFixture = {
     apiActions: AdvancedAPIHelper;
     assert: AdvancedAssertionsHelper;
 };
@@ -19,14 +19,14 @@ type APITestHelpers = {
  * Usage:
  *   import { test } from '../../fixtures/api-test-fixture';
  *
- *   test('API test', async ({ request, page, apiTestHelpers }) => {
- *       const { apiActions, assert } = apiTestHelpers;
+ *   test('API test', async ({ request, page, apiTestFixture }) => {
+ *       const { apiActions, assert } = apiTestFixture;
  *       const response = await apiActions.get('/users', 'Fetch users');
  *       await assert.toEqual(response.status(), 200, 'Verify status 200');
  *   });
  */
-export const test = base.extend<{ apiTestHelpers: APITestHelpers }>({
-    apiTestHelpers: async ({ request, page }, use, testInfo) => {
+export const test = base.extend<{ apiTestFixture: APITestFixture }>({
+    apiTestFixture: async ({ request, page }, use, testInfo) => {
         const logger = Logger.getLogger(`Fixture-API-${testInfo.title.replace(/\s+/g, '_')}`);
 
         const { apiActions, assert } = HelperFactory.createAPIHelpers(request, page, testInfo.title);

@@ -5,7 +5,7 @@
  * Uses lifecycle hooks (beforeAll, afterEach, afterAll) for logging and cleanup.
  * Each test explicitly navigates to the login page and performs the login flow.
  *
- * Fixture provides: pomEagerHelpers { pomEager, actions, assert }
+ * Fixture provides: pomEagerFixture { pomEager, actions, assert }
  */
 import { test } from '../../fixtures/pom-eager-fixture';
 import { Logger } from "../../../src/utils/Logger";
@@ -33,8 +33,8 @@ test.afterAll('This actions run after all tests',async () =>{
 // ==================== Test Cases ======================
 test.describe('Login test', ()=> {
     /** Valid login: navigates to login, enters correct credentials, verifies dashboard loads */
-    test('valid login', async ({ pomEagerHelpers }) => {
-        const { pomEager } = pomEagerHelpers;
+    test('valid login', async ({ pomEagerFixture }) => {
+        const { pomEager } = pomEagerFixture;
         await pomEager.getLoginPage().navigateToLogin();
         logger.info(`test starts for: valid login`);
         await pomEager.getLoginPage().login('Admin', 'admin123');
@@ -42,8 +42,8 @@ test.describe('Login test', ()=> {
     });
 
     /** Invalid login: navigates to login, enters wrong password, verifies error message */
-    test('invalid login', async ({ pomEagerHelpers }) => {
-        const { pomEager } = pomEagerHelpers;
+    test('invalid login', async ({ pomEagerFixture }) => {
+        const { pomEager } = pomEagerFixture;
         await pomEager.getLoginPage().navigateToLogin();
         logger.info(`test starts for: invalid login`);
         await pomEager.getLoginPage().login('Admin', 'admin12');

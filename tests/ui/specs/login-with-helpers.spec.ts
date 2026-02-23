@@ -12,30 +12,30 @@ import { test } from '../../fixtures/pom-lazy-fixture';
  * 5. Fixtures handle initialization and cleanup automatically
  */
 test.describe('✅ Best Practice: POM with Fixture', () => {
-    test.beforeEach(async ({ pomLazyHelpers: { pomLazy } }) => {
+    test.beforeEach(async ({ pomLazyFixture: { pomLazy } }) => {
         // Fixture provides pomLazy, navigate to login page
         await pomLazy.loginPage.navigateToLogin();
     });
 
-    test('Successful login - valid credentials', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Successful login - valid credentials', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Clean and readable - reads like a user story
         await pomLazy.loginPage.login('Admin', 'admin123');
         await pomLazy.homePage.assertProfileIcon();
     });
 
-    test('Failed login - invalid username', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Failed login - invalid username', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Page object handles all UI details
         await pomLazy.loginPage.login('InvalidUser', 'wrongpassword');
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - invalid password', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Failed login - invalid password', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Reusable methods across multiple test scenarios
         await pomLazy.loginPage.login('Admin', 'wrongpassword');
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - empty credentials', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Failed login - empty credentials', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Method handles edge cases
         await pomLazy.loginPage.login('', '');
         await pomLazy.loginPage.assertInvalidLoginMessage();
@@ -44,31 +44,31 @@ test.describe('✅ Best Practice: POM with Fixture', () => {
 
 
 test.describe('✅ Best Practice: POM with Fixture_Optimized', () => {
-    test.beforeEach(async ({ pomLazyHelpers: { pomLazy } }) => {
+    test.beforeEach(async ({ pomLazyFixture: { pomLazy } }) => {
         // Fixture provides pomLazy, navigate to login page
         await pomLazy.loginPage.navigateToLogin();
     });
 
-    test('Successful login - valid credentials_Optimized', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Successful login - valid credentials_Optimized', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Clean and readable - reads like a user story
         await pomLazy.loginPage.login('Admin', 'admin123');
         let _homePage = pomLazy.homePage; // Accessing homePage for the first time - triggers lazy initialization
         await _homePage.assertProfileIcon();
     });
 
-    test('Failed login - invalid username_Optimized', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Failed login - invalid username_Optimized', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Page object handles all UI details
         await pomLazy.loginPage.login('InvalidUser', 'wrongpassword');
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - invalid password_Optimized', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Failed login - invalid password_Optimized', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Reusable methods across multiple test scenarios
         await pomLazy.loginPage.login('Admin', 'wrongpassword');
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login - empty credentials_Optimized', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Failed login - empty credentials_Optimized', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Method handles edge cases
         await pomLazy.loginPage.login('', '');
         await pomLazy.loginPage.assertInvalidLoginMessage();
@@ -80,17 +80,17 @@ test.describe('✅ Best Practice: POM with Fixture_Optimized', () => {
  * Demonstrates working with multiple pages using fixture
  */
 test.describe('✅ Best Practice: Multi-Page Workflows', () => {
-    test.beforeEach(async ({ pomLazyHelpers: { pomLazy } }) => {
+    test.beforeEach(async ({ pomLazyFixture: { pomLazy } }) => {
         await pomLazy.loginPage.navigateToLogin();
     });
 
-    test('Login and verify home page', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Login and verify home page', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Seamless navigation between page objects
         await pomLazy.loginPage.login('Admin', 'admin123');
         await pomLazy.homePage.assertProfileIcon();
     });
 
-    test('Verify login page elements', async ({ pomLazyHelpers: { pomLazy } }) => {
+    test('Verify login page elements', async ({ pomLazyFixture: { pomLazy } }) => {
         // ✅ Page objects handle internal validation
         await pomLazy.loginPage.login('Admin', 'admin123');
         await pomLazy.homePage.assertProfileIcon();

@@ -2,7 +2,7 @@
  * API Tests — CRUD operations against JSONPlaceholder REST API.
  *
  * These tests demonstrate Playwright's built-in API testing capabilities using the
- * apiTestHelpers fixture (no browser needed). The apiActions helper provides automatic
+ * apiTestFixture fixture (no browser needed). The apiActions helper provides automatic
  * logging of all HTTP requests/responses, while the assert helper logs all assertions.
  *
  * Tagged with @api so they can be run separately via: `npm run api`
@@ -28,10 +28,10 @@ test.describe('Users API test',() =>{
      *   - HTTP 200 status
      *   - An array of exactly 100 posts
      *
-     * EXAMPLE: Using apiTestHelpers for automatic logging
+     * EXAMPLE: Using apiTestFixture for automatic logging
      */
-    test('Check get users response success response', async ({apiTestHelpers}) => {
-        const { apiActions, assert } = apiTestHelpers;
+    test('Check get users response success response', async ({apiTestFixture}) => {
+        const { apiActions, assert } = apiTestFixture;
 
         // Automatic logging of request/response with apiActions
         response = await apiActions.get('https://jsonplaceholder.typicode.com/posts', 'Fetch all posts');
@@ -46,10 +46,10 @@ test.describe('Users API test',() =>{
      * GET /posts?id=2 — Verifies that filtering by query parameter returns
      * the correct post with the expected title.
      *
-     * EXAMPLE: Using apiTestHelpers with query parameters
+     * EXAMPLE: Using apiTestFixture with query parameters
      */
-    test('Check get users response for a specific user', async ({apiTestHelpers}) => {
-        const { apiActions, assert } = apiTestHelpers;
+    test('Check get users response for a specific user', async ({apiTestFixture}) => {
+        const { apiActions, assert } = apiTestFixture;
 
         // Automatic logging of request/response with query parameter
         response = await apiActions.get('https://jsonplaceholder.typicode.com/posts?id=2', 'Fetch specific post by id=2');
@@ -63,14 +63,14 @@ test.describe('Users API test',() =>{
      * GET /posts — Verifies response headers contain the expected
      * Connection: keep-alive header.
      *
-     * EXAMPLE: Using apiTestHelpers to verify response headers
+     * EXAMPLE: Using apiTestFixture to verify response headers
      */
-    test('Check get users response header', async ({apiTestHelpers}) => {
-        const { apiActions, assert } = apiTestHelpers;
+    test('Check get users response header', async ({apiTestFixture}) => {
+        const { apiActions, assert } = apiTestFixture;
 
         // Automatic logging of request/response
         response = await apiActions.get('https://jsonplaceholder.typicode.com/posts', 'Fetch all posts to verify headers');
-        const headers = await response.headers();
+        const headers = response.headers();
 
         // Automatic assertion logging with assert helper
         await assert.toEqual(headers.connection, 'keep-alive', 'Verify Connection header is keep-alive');
@@ -80,10 +80,10 @@ test.describe('Users API test',() =>{
      * POST /posts — Creates a new post and verifies the response body
      * contains id=101 (JSONPlaceholder always returns 101 for new posts).
      *
-     * EXAMPLE: Using apiTestHelpers with POST request
+     * EXAMPLE: Using apiTestFixture with POST request
      */
-    test('Check post user response status code and body', async ({apiTestHelpers}) => {
-        const { apiActions, assert } = apiTestHelpers;
+    test('Check post user response status code and body', async ({apiTestFixture}) => {
+        const { apiActions, assert } = apiTestFixture;
 
         // Automatic logging of POST request/response with payload
         const postData = {

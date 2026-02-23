@@ -15,29 +15,21 @@ test.beforeAll('This actions run before all tests',async () =>{
     logger.info('This actions run before all tests');
 })
 
-test.beforeEach('This actions run before every test',async ({page}, testInfo) =>{
-    logger.info(`test starts for: ${testInfo.title}`);
-})
-
-test.afterEach('This actions run after every test',async ({page}, testInfo) =>{
-    logger.info(`test ends for: ${testInfo.title}`);
-})
-
 test.afterAll('This actions run after all tests',async () =>{
     logger.info('This actions run after all tests');
 })
 //====================Tests======================
 test.describe('Login test', ()=> {
-    test('valid login', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('valid login', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
         await pomLazy.loginPage.navigateToLogin();
         await pomLazy.loginPage.login(tsData.username, tsData.password);
         await pomLazy.homePage.assertProfileIcon();
     });
 
 invalidData.forEach(({username, password, testType}) => {
-    test(`invalid login for ${testType}`, async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test(`invalid login for ${testType}`, async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
         await pomLazy.loginPage.navigateToLogin();
         await pomLazy.loginPage.login(username, password);
         await pomLazy.loginPage.assertInvalidLoginMessage();

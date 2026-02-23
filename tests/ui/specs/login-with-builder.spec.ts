@@ -17,13 +17,13 @@ import { test} from '../../fixtures/pom-lazy-fixture';
 import { UserBuilder } from '../../../src/builders/user-builder';
 
 test.describe('✅ Login Tests with Builder Pattern', () => {
-    test.beforeEach(async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test.beforeEach(async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
         await pomLazy.loginPage.navigateToLogin();
     });
 
-    test('Successful login using valid admin preset', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('Successful login using valid admin preset', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
 
         // ✅ Using Builder Pattern with preset
         const validUser = new UserBuilder().asValidAdmin().build();
@@ -32,8 +32,8 @@ test.describe('✅ Login Tests with Builder Pattern', () => {
         await pomLazy.homePage.assertProfileIcon();
     });
 
-    test('Failed login using invalid password preset', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('Failed login using invalid password preset', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
 
         // ✅ Using Builder Pattern with preset
         const invalidUser = new UserBuilder().asInvalidPassword().build();
@@ -42,8 +42,8 @@ test.describe('✅ Login Tests with Builder Pattern', () => {
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login using invalid username preset', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('Failed login using invalid username preset', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
 
         // ✅ Using Builder Pattern with preset
         const invalidUser = new UserBuilder().asInvalidUsername().build();
@@ -52,8 +52,8 @@ test.describe('✅ Login Tests with Builder Pattern', () => {
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login using empty credentials preset', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('Failed login using empty credentials preset', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
 
         // ✅ Using Builder Pattern with preset
         const emptyUser = new UserBuilder().asEmptyCredentials().build();
@@ -62,8 +62,8 @@ test.describe('✅ Login Tests with Builder Pattern', () => {
         await pomLazy.loginPage.assertInvalidLoginMessage();
     });
 
-    test('Failed login using custom invalid credentials', async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test('Failed login using custom invalid credentials', async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
 
         // ✅ Using Builder Pattern with custom values
         const customInvalidUser = new UserBuilder()
@@ -85,8 +85,8 @@ test.describe('✅ Login Tests with Builder Pattern', () => {
  * for data-driven testing.
  */
 test.describe('✅ Data-Driven Login Tests with Builder', () => {
-    test.beforeEach(async ({ pomLazyHelpers }) => {
-        const { pomLazy } = pomLazyHelpers;
+    test.beforeEach(async ({ pomLazyFixture }) => {
+        const { pomLazy } = pomLazyFixture;
         await pomLazy.loginPage.navigateToLogin();
     });
 
@@ -94,8 +94,8 @@ test.describe('✅ Data-Driven Login Tests with Builder', () => {
     const invalidUsers = UserBuilder.buildInvalidUsers();
 
     invalidUsers.forEach((user) => {
-        test(`Failed login for ${user.testType}`, async ({ pomLazyHelpers }) => {
-            const { pomLazy } = pomLazyHelpers;
+        test(`Failed login for ${user.testType}`, async ({ pomLazyFixture }) => {
+            const { pomLazy } = pomLazyFixture;
 
             await pomLazy.loginPage.login(user.username, user.password);
             await pomLazy.loginPage.assertInvalidLoginMessage();

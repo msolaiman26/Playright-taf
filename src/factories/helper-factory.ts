@@ -25,7 +25,6 @@ import { Page, APIRequestContext } from '@playwright/test';
 import { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
 import { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
 import { AdvancedAPIHelper } from '../utils/advanced-api-helper';
-import winston from "winston";
 import { Logger } from "../utils/Logger";
 
 export interface HelperSet {
