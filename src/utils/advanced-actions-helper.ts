@@ -156,6 +156,7 @@ export class AdvancedActionsHelper {
             const startTime = Date.now();
 
             try {
+                await locator.clear();
                 await locator.fill(value);
                 const duration = Date.now() - startTime;
                 this.logger.info(`${step}: ${logMessage} - SUCCESS (${duration}ms)`);

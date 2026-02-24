@@ -59,6 +59,8 @@ tests/fixtures/
 └── api-test-fixture.ts     ← API tests
 ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Fixture Catalog
@@ -283,6 +285,8 @@ test('mock api response', async ({ page, apiTestFixture }) => {
 **Cons:**
 - ❌ No page object abstraction (not applicable for pure API tests)
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Usage Analysis
@@ -311,6 +315,8 @@ test('mock api response', async ({ page, apiTestFixture }) => {
 - **pom-eager-fixture**: 1 test file (multi-page flows)
 - **pom-lazy-fixture**: 4 test files (majority of UI tests)
 - **api-test-fixture**: 2 test files (all API tests)
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -390,6 +396,8 @@ import { test } from '../../fixtures/pom-lazy-fixture';
 
 All fixtures depend on abstractions (`HelperFactory`) rather than directly constructing concrete helper classes.
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Decision Matrix
@@ -420,6 +428,8 @@ All fixtures depend on abstractions (`HelperFactory`) rather than directly const
     └──────────┘ └──────────┘
 ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Summary
@@ -443,6 +453,8 @@ All fixtures depend on abstractions (`HelperFactory`) rather than directly const
 3. **All fixtures under `tests/fixtures/`** — co-located with test code, not mixed with `src/` framework utilities.
 
 4. **HelperFactory used by API fixture** — consistent helper creation, screenshots disabled automatically for API context.
+
+[↑ Back to top](#table-of-contents)
 
 ---
 

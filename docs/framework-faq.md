@@ -73,6 +73,8 @@ For detailed analysis and recommended Phase 2–4 patterns, see [design-patterns
 | [framework-faq.md](framework-faq.md) | This document — FAQ and quick reference |
 | [DOCUMENTATION-INDEX.md](DOCUMENTATION-INDEX.md) | Navigation index for all docs |
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Design Patterns
@@ -213,6 +215,8 @@ const loginPage = PageFactory.createLoginPage(page, testName);
 
 **Benefits:** single source of truth for creation, automatic debug logging, consistent configuration.
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Fixtures
@@ -279,6 +283,8 @@ await pomLazy.homePage.assertProfileIcon();
 ```
 
 The API fixture is the exception — `apiActions` and `assert` are exposed directly because there are no page objects in pure API tests.
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -376,6 +382,8 @@ get myNewPage(): MyNewPage {
 }
 ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Helpers & Utilities
@@ -465,6 +473,8 @@ await assert.assertAllSoftAssertions();                  // throws with both fai
 
 Use hard assertions for critical conditions (login succeeded, page loaded). Use soft assertions when you want to validate many UI elements and report all failures at once.
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Logging
@@ -529,6 +539,8 @@ export class MyPage {
 - Assertions Helper: `Assertions-testName-assertions`
 - Fixtures: `Fixture-POMEager-testName`
 - Test Specs: `suite-name` → `login-with-POManagerEager`
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -604,6 +616,8 @@ await page.route('https://api.example.com/*', async route => {
 ```
 
 See `tests/api/specs/network-interception.spec.ts` for complete examples.
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -684,6 +698,8 @@ this.logger.debug(`Element visible: ${await this.myElement.isVisible()}`);
    retries: process.env.CI ? 2 : 0,
    ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Quick Reference
@@ -741,6 +757,8 @@ import { HomePage } from '../../../src/pages/home-page';
 import { POMEager } from '../../../src/pages/pom-eager';
 import { POMLazy } from '../../../src/pages/pom-lazy';
 ```
+
+[↑ Back to top](#table-of-contents)
 
 ---
 

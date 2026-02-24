@@ -87,6 +87,28 @@
 
 ---
 
+### 5. config-helper.md
+
+Playwright Config Reference
+
+**Contains:**
+
+- Every `playwright.config.ts` property with its current value and description
+- Parallelism, retries, and timeout options with alternatives
+- Reporter catalogue (HTML, Allure, ReportPortal) and how to enable each
+- Snapshot & visual regression settings
+- Global setup / teardown configuration
+- All `use` (shared browser) options including optional/disabled ones
+- All available `projects` — browsers, mobile, tag-filtered, file-scoped, setup/teardown dependencies
+- Web server integration
+- Step-by-step ReportPortal enablement guide
+
+**Read this to:** understand any config property, find alternative values, enable a disabled feature, add a new browser project.
+
+[↑ Back to top](#documentation-index)
+
+---
+
 ## Documentation by Topic
 
 ### Design Patterns
@@ -109,15 +131,22 @@
 - **Data-Driven:** `framework-faq.md` — Testing Strategies
 - **API Mocking:** `framework-faq.md` — Testing Strategies
 
+### Configuration
+
+- **Complete Reference:** `config-helper.md`
+- **FAQ:** `framework-faq.md` — Quick Reference (commands & config snippets)
+
 ### Troubleshooting
 - **Debug Guide:** `framework-faq.md` — Troubleshooting
+
+[↑ Back to top](#documentation-index)
 
 ---
 
 ## Quick Navigation
 
 | I want to... | Document | Section |
-|---|---|---|
+| --- | --- | --- |
 | Understand fixtures | `fixtures-documentation.md` | Fixture Catalog |
 | Choose which fixture to use | `fixtures-documentation.md` | Decision Matrix |
 | Learn all design patterns | `design-patterns-analysis.md` | All sections |
@@ -128,6 +157,12 @@
 | Implement data-driven tests | `framework-faq.md` | Testing Strategies |
 | Mock API responses | `framework-faq.md` | Testing Strategies |
 | Find import paths | `framework-faq.md` | Quick Reference |
+| Understand a config property | `config-helper.md` | Relevant section |
+| Add a browser project | `config-helper.md` | projects |
+| Enable ReportPortal | `config-helper.md` | ReportPortal Integration |
+| Change timeout / retries | `config-helper.md` | Timeouts / Retries |
+
+[↑ Back to top](#documentation-index)
 
 ---
 
@@ -150,7 +185,9 @@
 - **API Tests:** 2 files (`tests/api/specs/`)
 
 ### Documentation
-- **Total:** 5 documents (all in `docs/`)
+- **Total:** 6 documents (all in `docs/`)
+
+[↑ Back to top](#documentation-index)
 
 ---
 
@@ -158,15 +195,20 @@
 
 **New to the framework? Read in this order:**
 
-1. `framework-faq.md` — Core concepts (fixtures, POM, helpers, logging)
-2. `fixtures-documentation.md` — Deep dive into fixtures
-3. `design-patterns-analysis.md` — All design patterns
-4. `logging-guide.md` — Master logging and test.step() integration
+1. `config-helper.md` — Understand the config file and all its properties
+2. `framework-faq.md` — Core concepts (fixtures, POM, helpers, logging)
+3. `fixtures-documentation.md` — Deep dive into fixtures
+4. `design-patterns-analysis.md` — All design patterns
+5. `logging-guide.md` — Master logging and test.step() integration
 
 **Experienced? Jump to:**
+
+- `config-helper.md` → projects / ReportPortal Integration
 - `fixtures-documentation.md` → Decision Matrix
 - `design-patterns-analysis.md` → Phase 2–4 recommended patterns
 - `framework-faq.md` → Troubleshooting
+
+[↑ Back to top](#documentation-index)
 
 ---
 

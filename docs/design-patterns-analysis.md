@@ -32,6 +32,8 @@ This document provides a comprehensive analysis of design patterns used in the P
 - 🎯 Focus areas: Test data management, error handling, scalability
 - 🎯 Priority: High-impact, low-effort improvements first
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Currently Implemented Patterns
@@ -625,6 +627,8 @@ invalidUsers.forEach((user) => {
 - ✅ Preset configurations for common scenarios
 - ✅ Works for both positive and negative test scenarios
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Recommended Patterns
@@ -796,6 +800,8 @@ const response = await new ApiRequestBuilder()
     .execute(request);
 ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Pattern Comparison Matrix
@@ -817,6 +823,8 @@ const response = await new ApiRequestBuilder()
 - 🔴 **HIGH** — Immediate value, low effort
 - 🟡 **MEDIUM** — Good value, moderate effort
 - 🟢 **LOW** — Nice to have, higher effort or lower impact
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -855,6 +863,8 @@ const response = await new ApiRequestBuilder()
 9. **Observer Pattern** — `src/observers/test-observer.ts`
 10. **Template Method** — `src/base/base-test.ts`
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Summary
@@ -890,6 +900,8 @@ The framework implements **11 solid design patterns** (Phase 1 Complete!):
 2. **Add ApiRequestBuilder** — Extend Builder pattern for API test data
 3. **Continue iterating** — Add patterns incrementally based on value
 4. **Keep this guide updated** — Document real implementations with actual file references
+
+[↑ Back to top](#table-of-contents)
 
 ---
 

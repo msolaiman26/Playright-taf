@@ -66,6 +66,8 @@ Console  File      HTML
          rotate)   (in-memory)
 ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Two Independent Logging Channels
@@ -82,6 +84,8 @@ These channels are **intentionally separate**:
 - Winston knows nothing about Playwright test results
 - `test.step()` knows nothing about log files
 - `StepRunner` is the thin bridge that triggers both simultaneously from one call site
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -105,6 +109,8 @@ logger.debug('Detailed diagnostics here');
 ```
 
 The `category` parameter appears in every log line and is the primary filter key in the HTML report. Use descriptive, structured names like `LoginPage-ValidLogin` or `Fixture-POMEager-valid_login`.
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -173,6 +179,8 @@ class HtmlCollectorTransport extends Transport {
 
 All collected entries are written to `test-logs/test-report.html` when `Logger.generateHtmlReport()` is called in `globalTeardown`.
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Log Levels
@@ -198,6 +206,8 @@ LOG_LEVEL=warn npx playwright test    # Only WARN and above (quietest)
 LOG_LEVEL=debug npx playwright test   # DEBUG and above (default)
 LOG_LEVEL=silly npx playwright test   # Everything
 ```
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -326,6 +336,8 @@ pomLazy.loginPage.login()
 | Log level filtering | Not applicable | `LOG_LEVEL` env var or HTML report filter |
 | Category filtering | Not applicable | HTML report category dropdown |
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Usage Patterns
@@ -452,6 +464,8 @@ test('valid login', async ({ pomEagerFixture }) => {
 });
 ```
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Category Naming Conventions
@@ -472,6 +486,8 @@ Consistent category names make Winston log filtering effective:
 | Helper Factory | `HelperFactory` | `HelperFactory` |
 | Test Spec | `suite-name` | `login-with-POManagerEager` |
 | Utility | `utility-name` | `network-interception` |
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -514,6 +530,8 @@ The HTML report provides:
 - **Color-coded badges** — Each level has a distinct badge color
 - **Responsive layout** — Works on any screen size
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Configuration
@@ -537,6 +555,8 @@ LOG_LEVEL=info npx playwright test    # Normal — info and above
 LOG_LEVEL=debug npx playwright test   # Verbose (default)
 LOG_LEVEL=silly npx playwright test   # Maximum verbosity
 ```
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -576,6 +596,8 @@ This:
 2. Closes all file transports properly
 3. Ensures all buffered log entries are flushed to disk before `generateHtmlReport()` runs
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Troubleshooting
@@ -610,6 +632,8 @@ This:
 - All imports should be `import winston from 'winston'`
 - There should be no remaining references to `log4js` in the codebase
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Best Practices
@@ -625,6 +649,8 @@ This:
 5. **Call `Logger.shutdown()`** in globalTeardown before `generateHtmlReport()` — order matters
 6. **Use consistent category naming** — follow the table in [Category Naming Conventions](#category-naming-conventions) for effective HTML report filtering
 7. **Do not instantiate helpers outside tests** — `StepRunner.run()` calls `test.step()`, which requires an active Playwright test context
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
