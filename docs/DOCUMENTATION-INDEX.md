@@ -87,7 +87,28 @@
 
 ---
 
-### 5. config-helper.md
+### 5. self-healing-locators.md
+
+Self-Healing Locators Guide
+
+Contains:
+
+- The problem with standard locators and why manual fallback lists don't scale
+- Three-phase healing architecture (Primary → Semantic auto-strategies → AI fallback)
+- `ElementMetadata` field reference — which fields drive which Playwright strategy
+- Built-in AI providers: `AnthropicHealingProvider`, `OpenAIHealingProvider`
+- Environment variable configuration (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)
+- Integration with existing `AdvancedActionsHelper` / `AdvancedAssertionsHelper`
+- Post-test healing report — ownership chain and how to read it
+- Step-by-step guide for adding a new self-healing page
+- Implementing a custom AI provider (e.g. Gemini, Ollama)
+- Full log output reference and troubleshooting guide
+
+**Read this to:** understand self-healing locators, add them to a new page, configure an AI provider, interpret the healing report, or debug healing failures.
+
+---
+
+### 6. config-helper.md
 
 Playwright Config Reference
 
@@ -126,6 +147,10 @@ Playwright Config Reference
 ### Page Objects
 - **FAQ:** `framework-faq.md` — Page Objects section
 - **Examples:** `src/pages/`
+
+### Self-Healing Locators
+
+- **Complete Guide:** `self-healing-locators.md`
 
 ### Testing Strategies
 - **Data-Driven:** `framework-faq.md` — Testing Strategies
