@@ -13,11 +13,11 @@ import type { LocatorDefinition } from '../utils/self-healing-locator';
 export const loginLocators = {
 
     usernameInput: {
-        selector: 'input[name="username"]', // Intentionally broken to demonstrate self-healing
+        selector: 'input[name="usernametvycv"]', // Intentionally broken to demonstrate self-healing
         metadata: {
             role:        'textbox',
-            label:       'Username',
-            placeholder: 'Username',
+            label:       'Username65',
+            placeholder: 'Username465',
             description: 'Username text input on the OrangeHRM login form',
         },
     },

@@ -35,6 +35,17 @@ export const test = base.extend<{ pomLazyFixture: POMLazyFixture }>({
 
         await use({ pomLazy, logger });
 
+        if (testInfo.status !== testInfo.expectedStatus) {
+            try {
+                await testInfo.attach('screenshot', {
+                    body: await page.screenshot({ fullPage: true }),
+                    contentType: 'image/png',
+                });
+            } catch (e) {
+                logger.warn(`Could not capture screenshot: ${(e as Error).message}`);
+            }
+        }
+
         if (testInfo.status === 'passed') {
             logger.info(`✅ TEST PASSED: "${testInfo.title}" (${testInfo.duration}ms)`);
         } else if (testInfo.status === 'failed') {

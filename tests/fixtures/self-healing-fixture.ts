@@ -1,6 +1,6 @@
-import { test as base } from '@playwright/test';
+import { test as base, type Page } from '@playwright/test';
 import { POMLazySelfHealing } from '../../src/pages/pom-lazy-self-healing';
-import { AnthropicHealingProvider, GeminiHealingProvider, OpenAIHealingProvider } from '../../src/utils/ai-healing-providers';
+import { GeminiMCPHealingProvider, PlaywrightMCPHealingProvider } from '../../src/utils/playwright-mcp-provider';
 import { type AIHealingProvider } from '../../src/utils/self-healing-locator';
 import winston from 'winston';
 import { Logger } from '../../src/utils/Logger';
@@ -16,24 +16,24 @@ type SelfHealingFixture = {
  * Extends the base test with `POMLazySelfHealing` and a logger.
  * Mirrors `pom-lazy-fixture.ts` in lifecycle, and adds:
  *
- * 1. **AI provider auto-configuration** — reads env vars to wire up an AI
- *    healing backend. Priority: ANTHROPIC_API_KEY → OPENAI_API_KEY → none.
- *    Without a key, locators still auto-heal via Playwright semantic strategies.
+ * 1. **AI provider auto-configuration** — reads env vars and wires up a
+ *    `@playwright/mcp`-backed provider. Priority: `ANTHROPIC_API_KEY` →
+ *    `GEMINI_API_KEY` → none (semantic-only healing).
  *
- * 2. **Post-test healing summary** — logs which locators used their primary
- *    selector and which healed (semantic or AI), making it easy to spot
- *    selectors that need updating.
+ * 2. **Playwright MCP healing (Phase 3)** — the MCP server spins up in-process,
+ *    attached to the test's own browser context (no new browser, no re-navigation).
+ *    The AI calls `browser_snapshot` to inspect the live ARIA tree and returns
+ *    a working Playwright selector.
+ *
+ * 3. **Post-test healing summary** — logs which locators used their primary
+ *    selector and which healed (semantic or AI).
  *
  * ## .env configuration (all optional)
  * ```
- * ANTHROPIC_API_KEY=sk-ant-...               # Claude (highest priority)
- * GEMINI_API_KEY=AIza...                     # Google Gemini (second priority)
- * OPENAI_API_KEY=sk-...                      # OpenAI (third priority)
- *
- * ANTHROPIC_MODEL=claude-haiku-4-5-20251001  # override Claude model
- * GEMINI_MODEL=gemini-2.0-flash              # override Gemini model
- * OPENAI_MODEL=gpt-4o-mini                   # override OpenAI model
- * OPENAI_BASE_URL=https://api.openai.com/v1  # override for Azure/Ollama
+ * ANTHROPIC_API_KEY=sk-ant-...        # → PlaywrightMCPHealingProvider (MCP + Claude)
+ * ANTHROPIC_MODEL=claude-sonnet-4-6   # override model (default: claude-sonnet-4-6)
+ * GEMINI_API_KEY=AIza...              # → GeminiMCPHealingProvider (MCP + Gemini)
+ * GEMINI_MODEL=gemini-2.0-flash       # override Gemini model
  * ```
  *
  * ## Usage
@@ -54,13 +54,25 @@ export const test = base.extend<{ selfHealingFixture: SelfHealingFixture }>({
         );
 
         // ── Resolve AI provider from env vars ────────────────────────────────
-        const aiProvider = resolveAIProvider(logger);
+        const aiProvider = resolveAIProvider(logger, page);
 
         const pomSelfHealing = new POMLazySelfHealing(page, testInfo.title, aiProvider);
 
         logger.info(`▶ TEST START: "${testInfo.title}"`);
 
         await use({ pomSelfHealing, logger });
+
+        // ── Attach screenshot to HTML report on failure ────────────────────────
+        if (testInfo.status !== testInfo.expectedStatus) {
+            try {
+                await testInfo.attach('screenshot', {
+                    body: await page.screenshot({ fullPage: true }),
+                    contentType: 'image/png',
+                });
+            } catch (e) {
+                logger.warn(`Could not capture screenshot: ${(e as Error).message}`);
+            }
+        }
 
         // ── Log test outcome ──────────────────────────────────────────────────
         if (testInfo.status === 'passed') {
@@ -75,7 +87,6 @@ export const test = base.extend<{ selfHealingFixture: SelfHealingFixture }>({
         }
 
         // ── Log self-healing summary ──────────────────────────────────────────
-        // The POM manager owns the report — the fixture never inspects locators directly.
         logger.info('--- Self-Healing Locator Summary ---');
         logger.info(pomSelfHealing.getHealingReport());
     }
@@ -87,28 +98,20 @@ export { expect } from '@playwright/test';
 // Helper: resolve AI provider from environment
 // ─────────────────────────────────────────────────────────────────────────────
 
-function resolveAIProvider(logger: winston.Logger): AIHealingProvider | undefined {
+function resolveAIProvider(logger: winston.Logger, page: Page): AIHealingProvider | undefined {
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     const geminiKey    = process.env.GEMINI_API_KEY;
-    const openaiKey    = process.env.OPENAI_API_KEY;
 
     if (anthropicKey) {
-        const model = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001';
-        logger.info(`[SelfHealingFixture] AI provider: Anthropic Claude (${model})`);
-        return new AnthropicHealingProvider(anthropicKey, model);
+        const model = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6';
+        logger.info(`[SelfHealingFixture] AI provider: Playwright MCP + Claude (${model})`);
+        return new PlaywrightMCPHealingProvider(page, anthropicKey, model);
     }
 
     if (geminiKey) {
         const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
-        logger.info(`[SelfHealingFixture] AI provider: Google Gemini (${model})`);
-        return new GeminiHealingProvider(geminiKey, model);
-    }
-
-    if (openaiKey) {
-        const model   = process.env.OPENAI_MODEL   ?? 'gpt-4o-mini';
-        const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
-        logger.info(`[SelfHealingFixture] AI provider: OpenAI (${model}) @ ${baseUrl}`);
-        return new OpenAIHealingProvider(openaiKey, model, baseUrl);
+        logger.info(`[SelfHealingFixture] AI provider: Playwright MCP + Gemini (${model})`);
+        return new GeminiMCPHealingProvider(page, geminiKey, model);
     }
 
     logger.info('[SelfHealingFixture] No AI provider configured — using semantic auto-healing only (Phases 1-2).');

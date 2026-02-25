@@ -10,26 +10,23 @@ import winston from 'winston';
 
 /**
  * Any class that implements this interface can be plugged into `SelfHealingLocator`
- * as the last-resort AI healing backend.
+ * as the last-resort AI healing backend (Phase 3).
  *
- * Built-in implementations live in `src/utils/ai-healing-providers.ts`:
- *   - `AnthropicHealingProvider`  (Claude)
- *   - `OpenAIHealingProvider`     (ChatGPT / any OpenAI-compatible endpoint)
+ * Built-in implementations (both use `@playwright/mcp` + live ARIA snapshot):
+ *   - `PlaywrightMCPHealingProvider` — Claude (Anthropic)
+ *   - `GeminiMCPHealingProvider`     — Gemini (Google)
  *
- * You can implement your own for Gemini, Azure OpenAI, Ollama, etc. by satisfying
- * this single-method interface.
+ * Implement this interface directly to add any other AI backend.
  */
 export interface AIHealingProvider {
     /**
-     * Given a snapshot of the page (simplified HTML) and a plain-English description
-     * of the element to find, return a Playwright selector string (CSS or XPath).
+     * Given a plain-English description of the element to find, return a
+     * Playwright selector string (CSS or XPath), or `null` / `'UNABLE_TO_HEAL'`
+     * when no reliable selector can be determined.
      *
-     * Return `null` when no reliable selector can be determined.
-     *
-     * @param pageSnapshot       - Simplified page HTML (scripts/styles stripped)
-     * @param elementDescription - Human description, e.g. "submit button on login form"
+     * @param elementDescription - e.g. "submit button on the OrangeHRM login form"
      */
-    suggestSelector(pageSnapshot: string, elementDescription: string): Promise<string | null>;
+    suggestSelector(elementDescription: string): Promise<string | null>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,11 +101,11 @@ export interface LocatorDefinition {
  * These are semantically grounded and survive DOM restructuring, class renames,
  * or attribute changes as long as the element's accessible meaning stays the same.
  *
- * ## Phase 3 — AI healing (opt-in)
+ * ## Phase 3 — AI healing via Playwright MCP (opt-in)
  * If all semantic strategies also fail and an `AIHealingProvider` was supplied,
- * the helper captures a simplified page snapshot and asks the AI to suggest a
- * working selector. Any AI model can be plugged in via the `AIHealingProvider`
- * interface (Claude, OpenAI, Gemini, Ollama, …).
+ * the provider is invoked with the element description. The MCP providers spin up
+ * an in-process `@playwright/mcp` server, take a live ARIA snapshot, and ask the
+ * AI to return a working selector.
  *
  * ## Integration with existing helpers
  * `AdvancedActionsHelper` and `AdvancedAssertionsHelper` accept plain Playwright
@@ -227,7 +224,7 @@ export class SelfHealingLocator {
             }
         }
 
-        // ── Phase 3: AI healing (opt-in) ───────────────────────────────────────
+        // ── Phase 3: AI healing via Playwright MCP (opt-in) ────────────────────
         if (this.aiProvider) {
             this.logger.warn(
                 `[SelfHealingLocator] Semantic strategies exhausted — invoking AI healing for "${this.metadata.description}"…`
@@ -335,16 +332,13 @@ export class SelfHealingLocator {
     }
 
     /**
-     * Captures a simplified page snapshot and forwards it to the AI provider.
-     * If the AI returns a non-empty selector, probes it and returns the locator on success.
+     * Invokes the AI provider with the element description.
+     * The MCP provider attaches to the live browser context and calls `browser_snapshot`
+     * to get the ARIA tree — no HTML capture needed here.
      */
     private async tryAIHealing(probeTimeout: number): Promise<Locator | null> {
         try {
-            const snapshot = await this.capturePageSnapshot();
-            const suggested = await this.aiProvider!.suggestSelector(
-                snapshot,
-                this.metadata.description,
-            );
+            const suggested = await this.aiProvider!.suggestSelector(this.metadata.description);
 
             if (!suggested || suggested.trim() === '' || suggested === 'UNABLE_TO_HEAL') {
                 this.logger.warn(`[SelfHealingLocator] AI could not suggest a selector for "${this.metadata.description}"`);
@@ -369,29 +363,5 @@ export class SelfHealingLocator {
         }
 
         return null;
-    }
-
-    /**
-     * Returns a compact, script-free HTML snapshot of the current page,
-     * truncated to 12 000 characters to stay within AI context limits.
-     * Uses `page.content()` + regex stripping to avoid requiring DOM lib types.
-     */
-    private async capturePageSnapshot(): Promise<string> {
-        try {
-            const html = await this.page.content();
-            const stripped = html
-                .replace(/<script[\s\S]*?<\/script>/gi, '')
-                .replace(/<style[\s\S]*?<\/style>/gi, '')
-                .replace(/<link[^>]*>/gi, '')
-                .replace(/<meta[^>]*>/gi, '')
-                .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-                .replace(/\s{2,}/g, ' ')
-                .trim();
-            return stripped.length > 12000
-                ? stripped.slice(0, 12000) + '\n...[truncated for AI context]'
-                : stripped;
-        } catch {
-            return 'Page snapshot unavailable.';
-        }
     }
 }

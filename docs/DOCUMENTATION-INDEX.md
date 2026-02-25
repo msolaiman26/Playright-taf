@@ -96,7 +96,7 @@ Contains:
 - The problem with standard locators and why manual fallback lists don't scale
 - Three-phase healing architecture (Primary → Semantic auto-strategies → AI fallback)
 - `ElementMetadata` field reference — which fields drive which Playwright strategy
-- Built-in AI providers: `AnthropicHealingProvider`, `OpenAIHealingProvider`
+- All AI providers including the new `PlaywrightMCPHealingProvider`
 - Environment variable configuration (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)
 - Integration with existing `AdvancedActionsHelper` / `AdvancedAssertionsHelper`
 - Post-test healing report — ownership chain and how to read it
@@ -108,7 +108,28 @@ Contains:
 
 ---
 
-### 6. config-helper.md
+### 6. playwright-mcp-healing.md
+
+Playwright MCP Self-Healing — Change Record & Verification Guide
+
+Contains:
+
+- What changed vs the previous AI healing approach (comparison table)
+- Why `@playwright/mcp` is better than raw HTML snapshots (ARIA tree explanation)
+- Full architecture diagram with the `contextGetter` flow
+- Step-by-step walkthrough of every line that runs during Phase 3 healing
+- New files / changed files with exact code signatures
+- `.env` configuration reference
+- **How to verify** — exact steps to trigger and confirm MCP healing end-to-end
+- Log output reference for all healing outcomes
+- Troubleshooting guide (auth issues, module resolution, type errors)
+- Technical notes (module resolution quirks, `contextGetter` vs `storageState`, loop cap)
+
+**Read this to:** understand the Playwright MCP integration, verify it works in your environment, or troubleshoot Phase 3 failures when `ANTHROPIC_API_KEY` is configured.
+
+---
+
+### 7. config-helper.md
 
 Playwright Config Reference
 
@@ -151,6 +172,7 @@ Playwright Config Reference
 ### Self-Healing Locators
 
 - **Complete Guide:** `self-healing-locators.md`
+- **MCP Integration & Verification:** `playwright-mcp-healing.md`
 
 ### Testing Strategies
 - **Data-Driven:** `framework-faq.md` — Testing Strategies
@@ -186,6 +208,9 @@ Playwright Config Reference
 | Add a browser project | `config-helper.md` | projects |
 | Enable ReportPortal | `config-helper.md` | ReportPortal Integration |
 | Change timeout / retries | `config-helper.md` | Timeouts / Retries |
+| Understand the Playwright MCP integration | `playwright-mcp-healing.md` | Architecture |
+| Verify MCP healing works end-to-end | `playwright-mcp-healing.md` | How to Verify |
+| Troubleshoot Phase 3 AI healing | `playwright-mcp-healing.md` | Troubleshooting |
 
 [↑ Back to top](#documentation-index)
 
@@ -210,7 +235,7 @@ Playwright Config Reference
 - **API Tests:** 2 files (`tests/api/specs/`)
 
 ### Documentation
-- **Total:** 6 documents (all in `docs/`)
+- **Total:** 7 documents (all in `docs/`)
 
 [↑ Back to top](#documentation-index)
 
@@ -238,5 +263,5 @@ Playwright Config Reference
 ---
 
 **Index Maintained By:** Test Automation Team
-**Version:** 2.0
-**Last Updated:** 2026-02-23
+**Version:** 2.1
+**Last Updated:** 2026-02-25

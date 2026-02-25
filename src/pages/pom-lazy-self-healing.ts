@@ -13,15 +13,8 @@ import { type AIHealingProvider } from '../utils/self-healing-locator';
  * Providing an `aiProvider` is optional — without one, the locators still
  * auto-heal via Playwright semantic strategies (Phase 2).
  *
- * Configure the provider in the fixture using env vars:
- * ```typescript
- * const aiProvider = process.env.ANTHROPIC_API_KEY
- *     ? new AnthropicHealingProvider(process.env.ANTHROPIC_API_KEY)
- *     : process.env.OPENAI_API_KEY
- *         ? new OpenAIHealingProvider(process.env.OPENAI_API_KEY)
- *         : undefined;
- * const pom = new POMLazySelfHealing(page, testName, aiProvider);
- * ```
+ * The AI provider is resolved automatically by `self-healing-fixture.ts` from
+ * env vars — use that fixture in tests rather than constructing this directly.
  */
 export class POMLazySelfHealing {
     private readonly page: Page;

@@ -1,7 +1,7 @@
 # Self-Healing Locators
 
 **Playwright Test Automation Framework**
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
 
 ---
 
@@ -62,10 +62,13 @@ Every `SelfHealingLocator` runs through up to three phases each time `.get()` is
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Phase 3 — AI healing (opt-in, requires env var)                    │
-│  1. Capture simplified page HTML (scripts/styles stripped)          │
-│  2. Send to AI with element description                             │
-│  3. AI returns a selector string                                    │
-│  4. Probe the AI suggestion                                         │
+│  MCP path (ANTHROPIC_API_KEY or GEMINI_API_KEY):                    │
+│    1. @playwright/mcp server attaches to test's live BrowserContext │
+│    2. AI calls browser_snapshot → YAML ARIA accessibility tree      │
+│    3. AI returns a selector; probe it                               │
+│  Raw HTML path (OPENAI_API_KEY):                                    │
+│    1. Capture simplified page HTML (scripts/styles stripped)        │
+│    2. Send to OpenAI with element description; returns a selector   │
 │  Match → return with WARN log "AI-healed: suggested '...'"         │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ AI also fails / not configured
@@ -88,7 +91,8 @@ src/
 ├── utils/
 │   ├── self-healing-locator.ts       ← Core class, LocatorDefinition, ElementMetadata
 │   ├── self-healing-page-base.ts     ← Abstract base class for self-healing pages
-│   └── ai-healing-providers.ts       ← Built-in AI providers
+│   ├── ai-healing-providers.ts       ← OpenAI raw-HTML provider + CustomAIHealingProvider base
+│   └── playwright-mcp-provider.ts    ← PlaywrightMCPHealingProvider + GeminiMCPHealingProvider
 ├── pages/
 │   ├── login-page-self-healing.ts    ← LoginPage behaviour (no inline selectors)
 │   ├── home-page-self-healing.ts     ← HomePage behaviour (no inline selectors)
@@ -266,69 +270,55 @@ if (locator.wasUsed()) {
 
 ## AI Providers
 
-Built-in providers live in `src/utils/ai-healing-providers.ts`. All use native `fetch` — no extra npm packages required.
+Both providers are in [src/utils/playwright-mcp-provider.ts](../src/utils/playwright-mcp-provider.ts).
+They share the same `@playwright/mcp` setup — the only difference is the AI API used in the agentic loop.
 
-### AnthropicHealingProvider (Claude)
+| Provider | Trigger env var | AI API |
+| --- | --- | --- |
+| `PlaywrightMCPHealingProvider` | `ANTHROPIC_API_KEY` | Anthropic (Claude) |
+| `GeminiMCPHealingProvider` | `GEMINI_API_KEY` | Google Generative Language (Gemini) |
+
+Both providers:
+
+- Spin up a `@playwright/mcp` server **in-process**, attached to the test's live `BrowserContext`
+- Receive a **YAML ARIA accessibility tree** via `browser_snapshot` — not stripped HTML
+- Ignore the `pageSnapshot` parameter (the MCP server provides better data directly)
+
+### PlaywrightMCPHealingProvider (Claude + Playwright MCP)
 
 ```typescript
-import { AnthropicHealingProvider } from '../utils/ai-healing-providers';
+import { PlaywrightMCPHealingProvider } from '../utils/playwright-mcp-provider';
 
-const provider = new AnthropicHealingProvider(
+const provider = new PlaywrightMCPHealingProvider(
+    page,                            // current Playwright Page from the test fixture
     process.env.ANTHROPIC_API_KEY!,
-    'claude-haiku-4-5-20251001',  // optional, this is the default
+    'claude-sonnet-4-6',             // optional, this is the default
 );
 ```
 
-### GeminiHealingProvider (Google Gemini)
+### GeminiMCPHealingProvider (Gemini + Playwright MCP)
 
 ```typescript
-import { GeminiHealingProvider } from '../utils/ai-healing-providers';
+import { GeminiMCPHealingProvider } from '../utils/playwright-mcp-provider';
 
-const provider = new GeminiHealingProvider(
+const provider = new GeminiMCPHealingProvider(
+    page,                          // current Playwright Page from the test fixture
     process.env.GEMINI_API_KEY!,
-    'gemini-2.0-flash',  // optional, this is the default
-);
-
-// Other available models: gemini-2.0-flash-lite, gemini-1.5-pro, gemini-1.5-flash
-```
-
-### OpenAIHealingProvider (ChatGPT / any OpenAI-compatible endpoint)
-
-```typescript
-import { OpenAIHealingProvider } from '../utils/ai-healing-providers';
-
-// Standard OpenAI
-const provider = new OpenAIHealingProvider(
-    process.env.OPENAI_API_KEY!,
-    'gpt-4o-mini',               // optional, this is the default
-);
-
-// Azure OpenAI
-const azureProvider = new OpenAIHealingProvider(
-    process.env.AZURE_OPENAI_KEY!,
-    'gpt-4o',
-    'https://my-resource.openai.azure.com/openai/deployments/gpt-4o',
-);
-
-// Ollama (local, no key required)
-const ollamaProvider = new OpenAIHealingProvider(
-    '',
-    'llama3',
-    'http://localhost:11434/v1',
+    'gemini-2.0-flash',            // optional, this is the default
 );
 ```
 
 ### AIHealingProvider interface
 
-Any class that implements this single-method interface works as a provider:
+Implement this single-method interface to add any other AI backend:
 
 ```typescript
 export interface AIHealingProvider {
-    suggestSelector(pageSnapshot: string, elementDescription: string): Promise<string | null>;
+    suggestSelector(elementDescription: string): Promise<string | null>;
 }
 ```
 
-Return the raw selector string (CSS or XPath), or `null` / `'UNABLE_TO_HEAL'` if the model cannot determine one.
+Return the raw selector string (CSS or XPath), or `null` / `'UNABLE_TO_HEAL'` when no reliable selector can be determined.
 
 ---
 
@@ -339,21 +329,16 @@ The fixture reads these variables automatically — no code changes needed to sw
 ```bash
 # .env
 
-# Claude (highest priority)
+# Playwright MCP + Claude (highest priority)
 ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-haiku-4-5-20251001   # optional override
+ANTHROPIC_MODEL=claude-sonnet-4-6   # optional override
 
-# Google Gemini (second priority)
+# Playwright MCP + Gemini (second priority)
 GEMINI_API_KEY=AIza...
-GEMINI_MODEL=gemini-2.0-flash               # optional override
-
-# OpenAI / compatible (third priority)
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini                    # optional override
-OPENAI_BASE_URL=https://api.openai.com/v1   # optional — override for Azure/Ollama
+GEMINI_MODEL=gemini-2.0-flash       # optional override
 ```
 
-**Priority:** `ANTHROPIC_API_KEY` → `GEMINI_API_KEY` → `OPENAI_API_KEY` → no AI (semantic-only healing).
+**Priority:** `ANTHROPIC_API_KEY` → `GEMINI_API_KEY` → no AI (semantic-only healing).
 
 Without any key the framework still heals via Phase 2 (semantic strategies) — AI is purely additive.
 
@@ -551,32 +536,20 @@ No changes to the fixture or test specs are needed.
 
 ## Implementing a Custom AI Provider
 
-Extend `CustomAIHealingProvider` and override `callAPI`, or implement `AIHealingProvider` directly. Use this for any provider not covered by the three built-ins (e.g. Cohere, AWS Bedrock, Mistral).
-
-### Example — Cohere
+Implement the `AIHealingProvider` interface directly for any backend not covered by the two built-ins.
+The interface has a single method — return the selector string or `null`:
 
 ```typescript
-// src/utils/cohere-healing-provider.ts
-import { CustomAIHealingProvider } from './ai-healing-providers';
+// src/utils/my-custom-provider.ts
+import { type AIHealingProvider } from './self-healing-locator';
 
-export class CohereHealingProvider extends CustomAIHealingProvider {
-    constructor(private readonly apiKey: string) { super(); }
+export class MyCustomHealingProvider implements AIHealingProvider {
+    constructor(private readonly apiKey: string) {}
 
-    protected async callAPI(prompt: string): Promise<string | null> {
-        const response = await fetch('https://api.cohere.com/v2/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type':  'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify({
-                model:    'command-r-plus',
-                messages: [{ role: 'user', content: prompt }],
-            }),
-        });
-        if (!response.ok) throw new Error(`Cohere API error ${response.status}`);
-        const data = await response.json();
-        return data.message?.content?.[0]?.text?.trim() ?? null;
+    async suggestSelector(description: string): Promise<string | null> {
+        // Call your AI here — use the description to identify the element.
+        // Return a CSS or XPath selector, or null if you cannot determine one.
+        return null;
     }
 }
 ```
@@ -584,7 +557,7 @@ export class CohereHealingProvider extends CustomAIHealingProvider {
 Wire it directly to `POMLazySelfHealing`:
 
 ```typescript
-const pom = new POMLazySelfHealing(page, testName, new CohereHealingProvider(apiKey));
+const pom = new POMLazySelfHealing(page, testName, new MyCustomHealingProvider(apiKey));
 ```
 
 ---
@@ -600,7 +573,8 @@ const pom = new POMLazySelfHealing(page, testName, new CohereHealingProvider(api
 | `WARN` | `[SelfHealingLocator] ✨ AI-healed "…": suggested selector "input[data-qa=...]"` | Phase 3 success |
 | `WARN` | `[SelfHealingLocator] AI could not suggest a selector for "…"` | AI returned null |
 | `ERROR` | `[SelfHealingLocator] ✗ All healing strategies failed for "…"` | All phases exhausted |
-| `INFO` | `[SelfHealingFixture] AI provider: Google Gemini (gemini-2.0-flash)` | Provider wired at startup |
+| `INFO` | `[SelfHealingFixture] AI provider: Playwright MCP + Claude (claude-sonnet-4-6)` | Provider wired at startup |
+| `INFO` | `[SelfHealingFixture] AI provider: Playwright MCP + Gemini (gemini-2.0-flash)` | Provider wired at startup |
 | `INFO` | `[SelfHealingFixture] No AI provider configured — using semantic auto-healing only` | No env key set |
 
 ---
@@ -618,13 +592,13 @@ await this.actions.fill(await this.usernameInput.get(5000), username, 'Enter use
 
 ### AI healing is not activating
 
-- Check that a key (`GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`) is set in `.env` and loaded via `dotenv`.
+- Check that `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` is set in `.env` and loaded via `dotenv`.
 - The fixture logs `[SelfHealingFixture] AI provider: …` at test start — if you see "No AI provider configured" the key was not found.
 - AI healing only triggers after **all** Phase 2 semantic strategies fail. If `getByLabel` succeeds, Phase 3 is never called.
 
 ### AI returns a selector that does not match
 
-The AI works from a 12 000-character HTML snapshot. For very dynamic pages (SPAs with heavy JS rendering) the snapshot may not reflect the live DOM. Try increasing the snapshot limit in `SelfHealingLocator.capturePageSnapshot()` or wait for the element's container to render before calling `.get()`.
+The AI receives the live ARIA tree from `browser_snapshot`. Improve the `description` field in `ElementMetadata` to be more specific if the AI picks the wrong element (e.g. on pages with many similar elements).
 
 ### All three phases fail
 
@@ -651,5 +625,5 @@ with `readonly` in the class body are enumerable own properties and are discover
 ---
 
 **Maintained by:** Test Automation Team
-**Version:** 1.2
-**Last Updated:** 2026-02-24
+**Version:** 1.3
+**Last Updated:** 2026-02-25
