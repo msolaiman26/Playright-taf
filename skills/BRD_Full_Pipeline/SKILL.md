@@ -24,15 +24,15 @@ You operate as a single, coordinated pipeline. You must complete all phases in o
 Before generating any content:
 1. **Extract the feature name** from the BRD (use title, main heading, or primary subject).
 2. **Derive naming tokens** from the feature name — you will reuse them across all phases:
-   - `FeatureName`   → full feature name, underscored (e.g., `Add_Employee`, `Edit_Delete_Employee`)
-   - `EntityName`    → PascalCase entity only — strip action words (Add, Edit, Delete, Create, View, Search, Import, Export, Approve, Submit) from the feature name (e.g., `Add Employee` → `Employee`, `Edit Delete Employee` → `Employee`)
-   - `feature-slug`  → full feature name, lowercase-hyphenated (e.g., `add-employee`, `edit-delete-employee`)
+   - `FeatureName`   → underscored (e.g., `Add_Employee`)
+   - `PageName`      → PascalCase (e.g., `AddEmployee`)
+   - `feature-slug`  → lowercase-hyphenated (e.g., `add-employee`)
    - `branch-name`   → `feature/<FeatureName>` (e.g., `feature/Add_Employee`)
 3. **Create required directories** if they do not already exist:
    - `stories/`
    - `test_cases/`
-   - `src/pages/`
-   - `tests/ui/specs/`
+   - `scripts/pages/`
+   - `scripts/tests/`
 
 ---
 
@@ -101,66 +101,50 @@ Before generating any content:
 3. **Web-first assertions:** use `await expect(locator).toBeVisible()` — never synchronous Jest-style assertions.
 4. **Full isolation:** every `test(...)` block must be independent. Use `beforeEach` for setup.
 
-**Output — File 1: POM** (`src/pages/<EntityName>.ts`)
-
-> If `src/pages/<EntityName>.ts` already exists, read it first and add only the new locators/methods required — do not duplicate anything already there.
-
-Follow the project's architecture: HelperFactory, AdvancedActionsHelper, AdvancedAssertionsHelper, Winston Logger.
+**Output — File 1: POM**
 
 ```typescript
 import { Page, Locator } from '@playwright/test';
-import type { AdvancedActionsHelper } from '../utils/advanced-actions-helper';
-import type { AdvancedAssertionsHelper } from '../utils/advanced-assertions-helper';
-import winston from 'winston';
-import { Logger } from '../utils/Logger';
-import { HelperFactory } from '../factories/helper-factory';
 
-export class <EntityName>Page {
-    readonly page: Page;
-    private readonly logger: winston.Logger;
-    readonly actions: AdvancedActionsHelper;
-    readonly assert: AdvancedAssertionsHelper;
+export class <PageName>Page {
+  readonly page: Page;
+  // declare all locators here
 
-    // ===================== Locators =====================
-    readonly <locatorName>: Locator;
+  constructor(page: Page) {
+    this.page = page;
+    // initialize locators using getByRole / getByTestId
+  }
 
-    constructor(page: Page, testName?: string) {
-        this.page = page;
-        this.logger = Logger.getLogger(`<EntityName>-${testName || '<EntityName>'}`);
-        const helpers = HelperFactory.createHelpers(page, testName || '<EntityName>');
-        this.actions = helpers.actions;
-        this.assert  = helpers.assert;
-        this.<locatorName> = page.locator('...');
-    }
-
-    // action methods — no assertions inside
-    // assertion methods — use this.assert.* only
+  // action methods — no assertions inside
 }
 ```
 
-**Output — File 2: Spec** (`tests/ui/specs/<feature-slug>.spec.ts`)
+**Output — File 2: Spec**
 
 ```typescript
-import { test } from '../../fixtures/pom-lazy-fixture';
+import { test, expect } from '@playwright/test';
+import { <PageName>Page } from '../pages/<feature-slug>.page';
 
 test.describe('<FeatureName> — <US-ID>', () => {
+  let page<PageName>: <PageName>Page;
 
-    test.beforeEach(async ({ pomLazyFixture: { pomLazy } }) => {
-        await pomLazy.loginPage.navigateToLogin();
-        await pomLazy.loginPage.login('Admin', 'admin123');
-        await pomLazy.<entityName>Page.navigateTo<EntityName>();
-    });
+  test.beforeEach(async ({ page }) => {
+    page<PageName> = new <PageName>Page(page);
+    // navigation / preconditions
+  });
 
-    test('<TC-ID>: <Test Case Title>', async ({ pomLazyFixture: { pomLazy } }) => {
-        await pomLazy.<entityName>Page.<actionMethod>();
-        await pomLazy.<entityName>Page.assert<Something>();
+  test('<TC-ID>: <Test Case Title>', async ({ page }) => {
+    await test.step('Step 1: ...', async () => { /* action */ });
+    await test.step('Verify: ...', async () => {
+      await expect(/* locator */).toBeVisible();
     });
+  });
 });
 ```
 
 **Save:**
-- POM  → `src/pages/<EntityName>.ts`
-- Spec → `tests/ui/specs/<feature-slug>.spec.ts`
+- POM  → `scripts/pages/<PageName>.page.ts`
+- Spec → `scripts/tests/<feature-slug>.spec.ts`
 
 ---
 
@@ -186,20 +170,20 @@ git checkout feature/<FeatureName>
 ```bash
 git add stories/<FeatureName>_UserStories.md
 git add test_cases/<FeatureName>_TestCases.md
-git add src/pages/<EntityName>.ts
-git add tests/ui/specs/<feature-slug>.spec.ts
+git add scripts/pages/<PageName>.page.ts
+git add scripts/tests/<feature-slug>.spec.ts
 ```
 
 ### Step 4 — Commit with a descriptive message
 ```bash
-git commit -m "feat(<feature-slug>): add user stories, test cases, and playwright scripts
+git commit -m "feat(<FeatureName>): add user stories, test cases, and playwright scripts
 
 Generated by BRD_Full_Pipeline skill.
 Artifacts:
   - stories/<FeatureName>_UserStories.md
   - test_cases/<FeatureName>_TestCases.md
-  - src/pages/<EntityName>.ts
-  - tests/ui/specs/<feature-slug>.spec.ts"
+  - scripts/pages/<PageName>.page.ts
+  - scripts/tests/<feature-slug>.spec.ts"
 ```
 
 ### Step 5 — Confirm to the user
@@ -212,8 +196,8 @@ Branch  : feature/<FeatureName>
 Saved   :
   📄 stories/<FeatureName>_UserStories.md
   📄 test_cases/<FeatureName>_TestCases.md
-  📄 src/pages/<EntityName>.ts
-  📄 tests/ui/specs/<feature-slug>.spec.ts
+  📄 scripts/pages/<PageName>.page.ts
+  📄 scripts/tests/<feature-slug>.spec.ts
 
 All files committed to branch: feature/<FeatureName>
 ```

@@ -1,6 +1,6 @@
 ---
 name: Setup_Workspace
-description: Initializes the local workspace folder structure required by the BRD-to-Playwright pipeline (stories/, test_cases/, src/pages/, tests/ui/specs/).
+description: Initializes the local workspace folder structure required by the BRD-to-Playwright pipeline (stories/, scripts/pages/, scripts/tests/).
 authors:
   - AgenticFlow
 ---
@@ -14,24 +14,22 @@ Create the required local directory structure for the automation pipeline so tha
 ## DIRECTORIES TO CREATE
 Create the following directories if they do not already exist:
 
-| Directory           | Purpose                                                     |
-|---------------------|-------------------------------------------------------------|
-| `stories/`          | Stores generated User Stories (one `.md` per feature)       |
-| `test_cases/`       | Stores generated Manual Test Cases (one `.md` per feature)  |
-| `src/pages/`        | Stores Playwright Page Object Model `.ts` files             |
-| `tests/ui/specs/`   | Stores Playwright test spec `.spec.ts` files                |
+| Directory           | Purpose                                              |
+|---------------------|------------------------------------------------------|
+| `stories/`          | Stores generated User Stories (one `.md` per feature) |
+| `scripts/pages/`    | Stores Playwright Page Object Model `.page.ts` files |
+| `scripts/tests/`    | Stores Playwright test spec `.spec.ts` files         |
 
 ## STEPS
 1. Check whether each directory listed above exists in the current working directory.
 2. Create any missing directories (including intermediate paths).
 3. Output a confirmation table showing the status of each directory:
 
-| Directory           | Status                          |
-|---------------------|---------------------------------|
-| `stories/`          | ✅ Created / ✅ Already exists  |
-| `test_cases/`       | ✅ Created / ✅ Already exists  |
-| `src/pages/`        | ✅ Created / ✅ Already exists  |
-| `tests/ui/specs/`   | ✅ Created / ✅ Already exists  |
+| Directory           | Status              |
+|---------------------|---------------------|
+| `stories/`          | ✅ Created / ✅ Already exists |
+| `scripts/pages/`    | ✅ Created / ✅ Already exists |
+| `scripts/tests/`    | ✅ Created / ✅ Already exists |
 
 4. Inform the user: "Workspace is ready. You can now run the pipeline: BRD_To_USs → USs_To_TCs → TCs_To_PLScript."
 

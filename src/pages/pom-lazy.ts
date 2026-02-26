@@ -22,8 +22,8 @@ import { Logger } from "../utils/Logger";
 export class POMLazy {
     private readonly page: Page;
     private readonly _testName?: string;
-    private _loginPage?: LoginPage;       // Cached LoginPage instance (created on first access)
-    private _homePage?: HomePage;         // Cached HomePage instance (created on first access)
+    private _loginPage?: LoginPage;     // Cached LoginPage instance (created on first access)
+    private _homePage?: HomePage;       // Cached HomePage instance (created on first access)
     private _employeePage?: EmployeePage; // Cached EmployeePage instance (created on first access)
 
     // ===================== Constructor =====================

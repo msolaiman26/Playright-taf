@@ -105,6 +105,11 @@ export class EmployeePage {
         await this.actions.fill(this.employeeIdInput, employeeId, 'Override Employee Id');
     }
 
+    async clearEmployeeId() {
+        this.logger.debug('Clearing Employee Id field');
+        await this.employeeIdInput.fill('');
+    }
+
     async clickSave() {
         this.logger.debug('Clicking Save button');
         await this.actions.click(this.saveButton, 'Click Save button');
@@ -138,27 +143,30 @@ export class EmployeePage {
 
     async assertRedirectedToPersonalDetails() {
         this.logger.info('Asserting redirect to Personal Details');
-        // Allow up to 15s for the SPA to redirect after save (demo server can be slow)
         await this.page.waitForURL(/viewPersonalDetails/, { timeout: 15000 });
         await this.assert.toHaveURL(/viewPersonalDetails/, 'Verify URL contains viewPersonalDetails');
     }
 
     async assertRedirectedToEmployeeList() {
         this.logger.info('Asserting redirect to Employee List');
+        await this.page.waitForURL(/viewEmployeeList/, { timeout: 10000 });
         await this.assert.toHaveURL(/viewEmployeeList/, 'Verify URL contains viewEmployeeList');
     }
 
     async assertFirstNameRequiredMessage() {
+        await this.actions.waitForVisible(this.firstNameRequiredMsg, 'Wait for First Name Required message', 5000);
         await this.assert.toBeVisible(this.firstNameRequiredMsg, 'Verify Required msg under First Name');
         await this.assert.toContainText(this.firstNameRequiredMsg, 'Required', 'Verify First Name Required text');
     }
 
     async assertLastNameRequiredMessage() {
+        await this.actions.waitForVisible(this.lastNameRequiredMsg, 'Wait for Last Name Required message', 5000);
         await this.assert.toBeVisible(this.lastNameRequiredMsg, 'Verify Required msg under Last Name');
         await this.assert.toContainText(this.lastNameRequiredMsg, 'Required', 'Verify Last Name Required text');
     }
 
     async assertEmployeeIdRequiredMessage() {
+        await this.actions.waitForVisible(this.employeeIdRequiredMsg, 'Wait for Employee Id Required message', 5000);
         await this.assert.toBeVisible(this.employeeIdRequiredMsg, 'Verify Required msg under Employee Id');
         await this.assert.toContainText(this.employeeIdRequiredMsg, 'Required', 'Verify Employee Id Required text');
     }

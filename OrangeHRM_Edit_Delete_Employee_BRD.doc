@@ -1,0 +1,56 @@
+﻿
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>OrangeHRM Edit Delete Employee BRD</title></head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+                    <h1 style="color: #334155;">Business Requirements Document (BRD)</h1>
+                    <p><strong>Project:</strong> OrangeHRM Core HR System Implementation<br>
+                    <strong>Module:</strong> Personal Information Management (PIM)<br>
+                    <strong>Feature:</strong> Edit and Delete Employee Records<br>
+                    <strong>Version:</strong> 1.0</p>
+
+                    <h2 style="color: #EA580C;">1. Project Overview</h2>
+                    <p>As part of Phase 2 for the PIM module, Human Resource Administrators require the ability to maintain the employee database. This includes modifying existing employee records to keep data accurate and deleting records for offboarded employees or erroneous entries.</p>
+
+                    <h2 style="color: #EA580C;">2. User Roles</h2>
+                    <ul>
+                        <li><strong>System Admin (HR):</strong> Has full access to search, view, edit, and delete employee records in the PIM module.</li>
+                    </ul>
+
+                    <h2 style="color: #EA580C;">3. Functional Requirements</h2>
+
+                    <h3>3.1 Search and Navigation</h3>
+                    <p>The user must be able to navigate to the "Employee List" tab within the PIM module. The system must provide a search form with fields such as "Employee Name" and "Employee Id". Entering search criteria and clicking "Search" should filter the data grid results accordingly.</p>
+
+                    <h3>3.2 Edit Employee Details</h3>
+                    <p>Clicking on an employee's row in the Employee List must route the Admin to the employee's "Personal Details" page.</p>
+                    <ul>
+                        <li>The Admin can modify fields such as First Name, Last Name, Marital Status, and Nationality.</li>
+                        <li><strong>Validation:</strong> The First Name and Last Name fields remain mandatory. If cleared, a "Required" error message must appear, and the record cannot be saved.</li>
+                        <li><strong>Success:</strong> Clicking "Save" must update the database and trigger a temporary green toast notification stating "Successfully Updated".</li>
+                    </ul>
+
+                    <h3>3.3 Delete Employee Selection</h3>
+                    <p>In the "Employee List" data grid, each row must have a checkbox in the first column.</p>
+                    <ul>
+                        <li>The Admin can select one or multiple checkboxes.</li>
+                        <li>Selecting at least one checkbox must enable/reveal a "Delete Selected" button (typically a trash can icon) above the grid or inline.</li>
+                    </ul>
+
+                    <h3>3.4 Delete Confirmation Modal</h3>
+                    <p>Clicking the "Delete Selected" button must NOT immediately delete the record. It must trigger a confirmation modal to prevent accidental data loss.</p>
+                    <ul>
+                        <li>The modal text should ask: "Are you sure you want to delete the selected record(s)?"</li>
+                        <li>The modal must contain two actions: "Yes, Delete" and "No, Cancel".</li>
+                    </ul>
+
+                    <h3>3.5 Successful Deletion</h3>
+                    <p>If the user clicks "Yes, Delete" on the confirmation modal:</p>
+                    <ol>
+                        <li>The system must permanently remove the selected employee record(s) from the database.</li>
+                        <li>The modal must close.</li>
+                        <li>The Employee List data grid must refresh, removing the deleted row(s).</li>
+                        <li>The system must display a temporary green success toast notification containing the text "Successfully Deleted".</li>
+                    </ol>
+                </body>
+                </html>
+            
