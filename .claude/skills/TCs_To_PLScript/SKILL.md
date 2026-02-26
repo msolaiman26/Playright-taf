@@ -162,11 +162,11 @@ test.describe('[US-ID]: [Feature Name]', () => {
 ## OUTPUT FORMAT
 Produce THREE distinct artifacts in order:
 
-### Artifact 1: `src/pages/<PageName>.ts` (Page Object)
-Full TypeScript class following the architecture above.
+### Artifact 1: `src/pages/<EntityName>.ts` (Page Object)
+Full TypeScript class following the architecture above. If the file already exists, show only the additions needed.
 
 ### Artifact 2: `src/pages/pom-lazy.ts` — POMLazy diff
-Show ONLY the lines to add (field + getter), clearly marked.
+Show ONLY the lines to add (field + getter), clearly marked. Skip if the getter already exists.
 
 ### Artifact 3: `tests/ui/specs/<feature-slug>.spec.ts` (Test Spec)
 Full spec file using the POMLazy fixture. One `test()` block per test case.
@@ -197,10 +197,11 @@ Full spec file using the POMLazy fixture. One `test()` block per test case.
 - `this.logger.error(...)` only inside catch blocks (helpers handle this automatically)
 
 ### File naming
-- Page class file: `src/pages/<page-name>.ts` — camelCase/PascalCase convention (e.g., `employee-add.ts`)
-- Test spec file: `tests/ui/specs/<feature-slug>.spec.ts` — lowercase-hyphenated (e.g., `employee-add.spec.ts`)
-- Class name: PascalCase + `Page` suffix (e.g., `EmployeeAddPage`)
-- POMLazy property name: camelCase (e.g., `employeeAddPage`)
+- **Entity name:** Strip action words (Add, Edit, Delete, Create, View, Search, Import, Export, Approve, Submit) from the feature to get the entity (e.g., `Add Employee` → `Employee`, `Edit Delete Employee` → `Employee`).
+- Page class file: `src/pages/<EntityName>.ts` — PascalCase entity name (e.g., `Employee.ts`)
+- Test spec file: `tests/ui/specs/<feature-slug>.spec.ts` — full feature, lowercase-hyphenated (e.g., `add-employee.spec.ts`, `edit-delete-employee.spec.ts`)
+- Class name: `<EntityName>Page` — entity only, no action prefix (e.g., `EmployeePage`)
+- POMLazy property name: camelCase entity + `Page` suffix (e.g., `employeePage`)
 
 ---
 
@@ -208,17 +209,129 @@ Full spec file using the POMLazy fixture. One `test()` block per test case.
 After generating all artifacts, perform these steps:
 
 1. **Derive names** from the feature under test:
-   - `[PageName]` → PascalCase (e.g., `EmployeeAdd`)
-   - `[feature-slug]` → lowercase-hyphenated (e.g., `employee-add`)
-   - `[pageName]` → camelCase (e.g., `employeeAddPage`)
-2. **Ensure directories exist**: `src/pages/` and `tests/ui/specs/` (already exist in this project)
-3. **Save the page object** to: `src/pages/<PageName>.ts`
+   - `[EntityName]` → PascalCase entity, strip action words (e.g., `Add Employee` → `Employee`, `Edit Delete Employee` → `Employee`)
+   - `[feature-slug]` → full feature, lowercase-hyphenated (e.g., `add-employee`, `edit-delete-employee`)
+   - `[pageName]` → camelCase entity + `Page` (e.g., `employeePage`)
+2. **Check if `src/pages/<EntityName>.ts` already exists:**
+   - **YES** → read it; add only new locators/methods needed for this feature; do not duplicate anything already there.
+   - **NO** → create it with the full class structure above.
+3. **Ensure `tests/ui/specs/` exists** (already exists in this project).
 4. **Save the test spec** to: `tests/ui/specs/<feature-slug>.spec.ts`
-5. **Do NOT auto-edit** `src/pages/pom-lazy.ts` — instead print the exact lines to add and instruct the user to apply them manually (the file is shared; user must review before editing)
+5. **Check if `src/pages/pom-lazy.ts` already has a `get [pageName]()` getter:**
+   - **YES** → no change needed; state this explicitly.
+   - **NO** → add the field + getter; apply the change directly to the file.
 6. **Confirm** to the user:
-   - "Page object saved to `src/pages/<PageName>.ts`"
+   - "Page object saved/updated: `src/pages/<EntityName>.ts`"
    - "Test spec saved to `tests/ui/specs/<feature-slug>.spec.ts`"
-   - "Manual step required: add `[pageName]` to `src/pages/pom-lazy.ts` — see Artifact 2 above"
+
+---
+
+## EXECUTE & FIX (one round only)
+
+After saving all files, run the spec immediately.
+
+### Run 1 — Initial execution
+```bash
+npx playwright test "tests/ui/specs/<feature-slug>.spec.ts" --reporter=list --project="Google Chrome" --retries=0 --workers=1
+```
+Count `passed` and `failed` from the output.
+
+- **All passed** → skip to **Final Report**.
+- **Any failed** → proceed to **Diagnose**.
+
+### Diagnose failures
+For each failing test, classify the root cause:
+
+| Error pattern | Category |
+|---|---|
+| `TimeoutError` + `waiting for locator(...)` | **LOCATOR** — selector matches nothing |
+| `strict mode violation` | **LOCATOR** — selector matches multiple elements |
+| `toHaveURL` / `toContainText` / `toHaveText` mismatch | **TEXT** — wrong expected value |
+| `toBeVisible` immediately after an action | **TIMING** — element not yet rendered |
+| `TypeError` / `is not a function` | **CODE** — logic bug in POM or spec |
+
+### Fix — one round only
+Apply fixes to `src/pages/<EntityName>.ts` only (edit the spec only for CODE-category bugs):
+
+| Category | Fix |
+|---|---|
+| LOCATOR | Try more specific CSS → XPath by text → XPath ancestor → add `.first()` for strict-mode |
+| TEXT | Update the expected string constant from the `Received:` value in the error |
+| TIMING | Add `await this.actions.waitForVisible(locator, '...', 10000)` before the failing assertion |
+| CODE | Fix the TypeScript/logic error in the POM or spec |
+
+Save the updated file(s), then run once more.
+
+### Run 2 — Final execution (no further retries)
+```bash
+npx playwright test "tests/ui/specs/<feature-slug>.spec.ts" --reporter=list --project="Google Chrome" --retries=0 --workers=1
+```
+
+> **This is the last run. Do NOT attempt any more fixes or re-runs regardless of the result.**
+
+### Final Report
+Print a summary:
+```
+Execution complete: tests/ui/specs/<feature-slug>.spec.ts
+Run 1 — Passed: X  Failed: Y  (pass rate: X%)
+Run 2 — Passed: X  Failed: Y  (pass rate: X%)  ← only if Run 1 had failures
+
+Still failing (if any):
+  × <TC-ID>: <Title> — <Category>: <brief reason>
+```
+
+---
+
+## CREATE PR (if pass rate > 80% in every run executed)
+
+Calculate `pass rate = passed / (passed + failed) * 100` for each run that was executed.
+
+**Condition:** Create a PR **only if every run that was executed has a pass rate > 80%.**
+- Run 1 only (no failures) → Run 1 > 80%
+- Run 1 + Run 2 → **both** Run 1 > 80% **and** Run 2 > 80%
+
+If the condition is **not met** → print:
+> "PR skipped — pass rate did not exceed 80% in all runs. Fix remaining failures manually before merging."
+And stop.
+
+If the condition **is met**, commit and open a PR:
+
+```bash
+git add src/pages/<EntityName>.ts tests/ui/specs/<feature-slug>.spec.ts src/pages/pom-lazy.ts
+git commit -m "feat(<feature-slug>): add <EntityName> page object and spec
+
+Generated by AutomationEngineerSkill.
+Artifacts:
+  - src/pages/<EntityName>.ts
+  - tests/ui/specs/<feature-slug>.spec.ts
+
+Test results: Run1 <passed1>/<total1> passing (<rate1>%) | Run2 <passed2>/<total2> passing (<rate2>%)"
+```
+
+```bash
+gh pr create \
+  --title "feat(<feature-slug>): <FeatureName> automation (<final-rate>% passing)" \
+  --body "$(cat <<'EOF'
+## Summary
+- Page Object: \`src/pages/<EntityName>.ts\`
+- Spec: \`tests/ui/specs/<feature-slug>.spec.ts\`
+
+## Test Results
+| Run | Passed | Failed | Pass Rate |
+|-----|--------|--------|-----------|
+| Run 1 | <p1> | <f1> | <r1>% |
+| Run 2 | <p2> | <f2> | <r2>% |
+
+## Remaining failures
+<List each failing TC-ID and its category, or 'None — all tests pass'>
+
+🤖 Generated by AutomationEngineerSkill
+EOF
+)" \
+  --base master
+```
+
+Print the PR URL returned by the command.
 
 user:
 {{test_cases}}
