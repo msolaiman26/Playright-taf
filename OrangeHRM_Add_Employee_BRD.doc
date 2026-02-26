@@ -1,0 +1,55 @@
+﻿
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>OrangeHRM Add Employee BRD</title></head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+                    <h1 style="color: #334155;">Business Requirements Document (BRD)</h1>
+                    <p><strong>Project:</strong> OrangeHRM Core HR System Implementation<br>
+                    <strong>Module:</strong> Personal Information Management (PIM)<br>
+                    <strong>Feature:</strong> Add New Employee Flow<br>
+                    <strong>Version:</strong> 1.0</p>
+
+                    <h2 style="color: #EA580C;">1. Project Overview</h2>
+                    <p>The company is rolling out the OrangeHRM system to replace manual spreadsheets for employee tracking. The primary goal for Phase 1 is to allow Human Resource Administrators to securely and accurately onboard new employees into the system database via the PIM module.</p>
+
+                    <h2 style="color: #EA580C;">2. User Roles</h2>
+                    <ul>
+                        <li><strong>System Admin (HR):</strong> Has full access to the PIM module to add, edit, and delete employee records.</li>
+                        <li><strong>Standard Employee:</strong> Cannot add new employees. (Out of scope for this specific feature).</li>
+                    </ul>
+
+                    <h2 style="color: #EA580C;">3. Functional Requirements</h2>
+
+                    <h3>3.1 Navigation and Access</h3>
+                    <p>Only authenticated users with System Admin privileges should be able to access the "Add Employee" functionality. The user must navigate to the "PIM" module from the main side navigation menu, and then select the "Add Employee" tab from the top navigation bar.</p>
+
+                    <h3>3.2 Add Employee Form Fields</h3>
+                    <p>The system must provide a form to capture basic employee details. The form must contain the following fields:</p>
+                    <ul>
+                        <li><strong>First Name:</strong> Text input. (Mandatory)</li>
+                        <li><strong>Middle Name:</strong> Text input. (Optional)</li>
+                        <li><strong>Last Name:</strong> Text input. (Mandatory)</li>
+                        <li><strong>Employee Id:</strong> Text input. The system should auto-generate a numerical ID by default, but the Admin can override it. (Mandatory)</li>
+                        <li><strong>Profile Picture:</strong> File upload. Accepts JPG/PNG up to 1MB. (Optional)</li>
+                        <li><strong>Create Login Details:</strong> A toggle switch. If enabled, it reveals additional fields to immediately create a system user account for the new employee (Username, Password, Confirm Password). For this phase, we only require the basic employee creation without login details.</li>
+                    </ul>
+
+                    <h3>3.3 Form Validation and Error Handling</h3>
+                    <p>Data integrity is critical. The system must validate the input before saving to the database:</p>
+                    <ul>
+                        <li>If the Admin clicks the "Save" button while any Mandatory fields (First Name, Last Name, Employee Id) are empty, the system must NOT create the record.</li>
+                        <li>The system must display a red "Required" validation message directly underneath the corresponding empty mandatory fields.</li>
+                    </ul>
+
+                    <h3>3.4 Successful Submission</h3>
+                    <p>Upon filling out all mandatory fields correctly and clicking the "Save" button:</p>
+                    <ol>
+                        <li>The system must save the employee record to the database.</li>
+                        <li>The system must display a temporary green success toast notification containing the text "Successfully Saved" in the bottom corner of the screen.</li>
+                        <li>The system must automatically route the user away from the Add Employee form and land them on the "Personal Details" view of the newly created employee's profile.</li>
+                    </ol>
+
+                    <h3>3.5 Cancellation</h3>
+                    <p>The form must include a "Cancel" button next to the Save button. If the user clicks "Cancel", any entered data is discarded, and the user is routed to the "Employee List" view.</p>
+                </body>
+                </html>
+            
