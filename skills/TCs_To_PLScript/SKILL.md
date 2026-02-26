@@ -287,13 +287,150 @@ After generating all artifacts:
 
 1. **Run STEP 0** to derive `EntityName`, `pageFile`, `feature-slug`, `specFile`, `pageName`.
 2. **Run STEP 1** — check if `src/pages/<EntityName>.ts` exists; extend or create accordingly.
-3. **Run STEP 2** — check `src/pages/pom-lazy.ts` for the `<pageName>` getter.
+3. **Run STEP 2** — check `src/pages/pom-lazy.ts` for the `<pageName>` getter; apply the diff directly (do not ask for manual action — this is an automated pipeline step).
 4. **Save the page object** to: `src/pages/<EntityName>.ts` (create or overwrite with extended version).
 5. **Save the test spec** to: `tests/ui/specs/<feature-slug>.spec.ts`.
-6. **Confirm** to the user:
-   - "Page object [created/extended] at `src/pages/<EntityName>.ts`"
-   - "Test spec saved to `tests/ui/specs/<feature-slug>.spec.ts`"
-   - POMLazy status from STEP 2
+6. Proceed immediately to **PHASE 4**.
+
+---
+
+## PHASE 4 — EXECUTE THE SPEC
+
+After all files are saved, run the generated spec immediately. Use `--reporter=list` to suppress the HTML report auto-open, and `--retries=0` so every failure is a clean first-run signal:
+
+```bash
+npx playwright test "tests/ui/specs/<feature-slug>.spec.ts" --reporter=list --project="Google Chrome" --retries=0 --workers=1
+```
+
+Capture the full stdout output.
+
+### 4.1 — Parse results
+
+From the `list` reporter output:
+- Lines starting with `✓` → **PASSED** test
+- Lines starting with `×` or `✗` or `FAILED` → **FAILED** test; the lines that follow contain the error message and stack
+
+Count `PASSED`, `FAILED`, `SKIPPED`.
+
+### 4.2 — Decision
+
+| Outcome | Action |
+|---|---|
+| All tests PASSED | Print the final summary table (PHASE 7) and stop — no fixes needed |
+| Any tests FAILED | Proceed to PHASE 5 |
+
+---
+
+## PHASE 5 — DIAGNOSE FAILURES
+
+For each failed test, extract:
+1. **Test title** (e.g., `TC-04.1: Save with empty First Name...`)
+2. **Error type** — classify using the table below
+3. **Failing locator or value** — the selector / expected string that caused the failure
+
+### Failure classification table
+
+| Error pattern in output | Category | Root cause |
+|---|---|---|
+| `TimeoutError` + `waiting for locator(...)` | **LOCATOR** | CSS/XPath selector matches nothing |
+| `strict mode violation` | **LOCATOR** | Selector matches multiple elements — needs scoping |
+| `expect(page).toHaveURL` | **URL** | Navigation target or redirect URL pattern is wrong |
+| `expect(locator).toContainText` / `toHaveText` | **TEXT** | Expected text constant does not match actual DOM text |
+| `expect(locator).toBeVisible` (after a save/click action) | **TIMING** | Element exists but is not yet visible when assertion runs |
+| `Error: page.goto` / `net::ERR` | **NAV** | The goto URL is wrong or unreachable |
+| `TypeError` / `is not a function` | **CODE** | TypeScript/runtime error in POM — logic bug |
+
+---
+
+## PHASE 6 — FIX THE POM
+
+**Only fix `src/pages/<EntityName>.ts`.** The spec file calls POM methods correctly by design — spec changes are a last resort.
+
+Apply fixes per category:
+
+### LOCATOR fix
+- Read the failing locator declaration in the POM constructor.
+- Try alternative strategies in this priority order:
+  1. **More specific CSS**: add a parent scoping class or `nth-child` index
+  2. **XPath by visible text**: `//button[normalize-space()='Label text']`
+  3. **XPath ancestor chain**: `//label[normalize-space()='Field label']/following::input[1]`
+  4. **Playwright semantic**: `page.getByRole('button', { name: 'Label' })` or `page.getByLabel('Field label')`
+  5. **nth index** (last resort): `page.locator('.oxd-input').nth(N)`
+- Replace the old selector with the best alternative.
+- Update the same locator in every method that uses it.
+
+### URL fix
+- Find the `toHaveURL(/pattern/)` or `goto(url, ...)` in the POM.
+- Extract the actual URL from the error message (`+ Received string: "..."`) and update the regex or string to match it.
+
+### TEXT fix
+- Find the expected text string / constant in the POM (look at `toContainText`, `toHaveText`, constant declarations).
+- Extract the actual text from the error (`+ Received string: "..."`) and update the constant or assertion argument.
+
+### TIMING fix
+- Before the failing `this.assert.toBeVisible(...)` or `this.assert.toContainText(...)`, add:
+  ```typescript
+  await this.actions.waitForVisible(this.<locator>, 'Wait for <element> to appear', 60000);
+  ```
+
+### NAV fix
+- Correct the URL string passed to `this.actions.goto(...)`.
+
+### CODE fix
+- Read the TypeScript error, find the line, and fix the syntax/logic.
+
+After applying all fixes, **save the updated POM file**, then go back to **PHASE 4**.
+
+---
+
+## PHASE 7 — ITERATION CONTROL & FINAL SUMMARY
+
+Track the round number (starts at 1 in PHASE 4).
+
+```
+Max rounds: 3
+```
+
+| Round | Condition | Action |
+|---|---|---|
+| 1–3 | Some tests still fail after fix | Apply fixes → re-run (back to PHASE 4) |
+| Any round | All tests pass | Stop immediately |
+| Round 3 exhausted | Tests still fail | Do NOT run again; go to failure report |
+
+### If all tests pass — print:
+
+```
+✅ All tests passed on round <N>
+
+Spec   : tests/ui/specs/<feature-slug>.spec.ts
+POM    : src/pages/<EntityName>.ts
+Rounds : <N>
+
+Results:
+  ✓ PASSED : <count>
+  ✗ FAILED : 0
+  ⏭ SKIPPED: <count>
+```
+
+### If max rounds reached with failures — print:
+
+```
+⚠️ Max fix rounds (3) reached. Remaining failures require manual investigation.
+
+Spec   : tests/ui/specs/<feature-slug>.spec.ts
+
+Still failing:
+  × <TC-ID>: <Test Title>
+    Category : <LOCATOR | URL | TEXT | TIMING | NAV | CODE>
+    Error    : <error message>
+    Tried    : <list of selectors/values attempted>
+
+Recommended next steps:
+  1. Open the failing test in headed mode:
+     npx playwright test "<specFile>" --headed --project="Google Chrome"
+  2. Use browser DevTools to inspect the actual selector.
+  3. Update src/pages/<EntityName>.ts with the correct selector.
+```
 
 user:
 {{test_cases}}

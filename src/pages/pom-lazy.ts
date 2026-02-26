@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 import { LoginPage } from "./login-page";
 import { HomePage } from "./home-page";
+import { EmployeePage } from "./Employee";
 import winston from "winston";
 import { Logger } from "../utils/Logger";
 
@@ -21,8 +22,9 @@ import { Logger } from "../utils/Logger";
 export class POMLazy {
     private readonly page: Page;
     private readonly _testName?: string;
-    private _loginPage?: LoginPage;   // Cached LoginPage instance (created on first access)
-    private _homePage?: HomePage;     // Cached HomePage instance (created on first access)
+    private _loginPage?: LoginPage;       // Cached LoginPage instance (created on first access)
+    private _homePage?: HomePage;         // Cached HomePage instance (created on first access)
+    private _employeePage?: EmployeePage; // Cached EmployeePage instance (created on first access)
 
     // ===================== Constructor =====================
     /**
@@ -52,5 +54,13 @@ export class POMLazy {
             this._homePage = new HomePage(this.page, this._testName ?? "");
         }
         return this._homePage;
+    }
+
+    /** Returns the EmployeePage instance, creating it on first access */
+    get employeePage(): EmployeePage {
+        if (!this._employeePage) {
+            this._employeePage = new EmployeePage(this.page, this._testName ?? "");
+        }
+        return this._employeePage;
     }
 }
